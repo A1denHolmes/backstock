@@ -13,6 +13,12 @@
     <version>0.0.1-SNAPSHOT</version>
     <name>backstock</name>
     <description>backstock</description>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
 
     <properties>
         <java.version>25</java.version>
