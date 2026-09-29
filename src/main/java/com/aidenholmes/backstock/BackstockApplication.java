@@ -9,5 +9,4 @@ public class BackstockApplication {
     public static void main(String[] args) {
         SpringApplication.run(BackstockApplication.class, args);
     }
-
 }
