@@ -1,0 +1,4 @@
+logging:
+  level:
+    com.aidenholmes.backstock: INFO
+    org.hibernate.SQL: INFO
