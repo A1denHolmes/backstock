@@ -16,7 +16,7 @@ class BaseEntityTest {
         TestEntity first = withId(new TestEntity(), 1L);
         TestEntity second = withId(new TestEntity(), 1L);
 
-        assertThat(first).isEqualTo(second);
+        assertThat(first).isEqualTo(second).hasSameHashCodeAs(second);
     }
 
     @Test
@@ -58,10 +58,11 @@ class BaseEntityTest {
     @Test
     void hashCodeDoesNotChangeWhenIdIsAssigned() {
         TestEntity entity = new TestEntity();
-        int hash = entity.hashCode();
+        int hashBeforeId = entity.hashCode();
+
         withId(entity, 1L);
 
-        assertThat(hash).isEqualTo(entity.hashCode());
+        assertThat(entity.hashCode()).isEqualTo(hashBeforeId);
     }
 
     private static <T extends BaseEntity> T withId(T entity, Long id) {
