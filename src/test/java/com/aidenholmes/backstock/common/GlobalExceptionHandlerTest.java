@@ -2,6 +2,8 @@ package com.aidenholmes.backstock.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -11,6 +13,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(GlobalExceptionHandlerTest.ThrowingController.class)
@@ -73,6 +77,40 @@ class GlobalExceptionHandlerTest {
                 .hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
     }
 
+    @Test
+    void invalidFieldReturns400WithFieldError() {
+        MvcTestResult result = mvc.post()
+                .uri("/test/validated")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"name": ""}
+                    """)
+                .exchange();
+
+        assertThat(result)
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.errors[0].field")
+                .isEqualTo("name");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].message").isNotEmpty();
+    }
+
+    @Test
+    void malformedJsonReturns400WithoutFieldErrors() {
+        MvcTestResult result = mvc.post()
+                .uri("/test/validated")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"name":
+                    """)
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST).hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(result).bodyJson().doesNotHavePath("$.errors");
+        assertThat(result).bodyText().doesNotContain("line:");
+    }
+
     @RestController
     static class ThrowingController {
 
@@ -95,5 +133,10 @@ class GlobalExceptionHandlerTest {
         void unexpected() {
             throw new IllegalStateException("secret internal detail");
         }
+
+        @PostMapping("/test/validated")
+        void validated(@Valid @RequestBody ValidatedRequest request) {}
     }
+
+    record ValidatedRequest(@NotBlank String name) {}
 }
