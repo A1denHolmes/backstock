@@ -3,6 +3,7 @@ package com.aidenholmes.backstock.common;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -19,6 +20,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final String UNEXPECTED_ERROR_DETAIL = "An unexpected error occurred";
+    private static final String DATA_INTEGRITY_VIOLATION_DETAIL =
+            "The request conflicts with the current state of the data";
 
     @Override
     protected @Nullable ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -44,6 +47,13 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(BusinessRuleException.class)
     ProblemDetail handleBusinessRule(BusinessRuleException ex) {
         return forDomainException(HttpStatus.UNPROCESSABLE_CONTENT, ex);
+    }
+
+    // NOT NULL violations also end up here, although they indicate a bug rather than a conflict.
+    // They are already logged by Hibernate.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleDataIntegrityViolation() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, DATA_INTEGRITY_VIOLATION_DETAIL);
     }
 
     @ExceptionHandler(Exception.class)

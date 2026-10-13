@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -111,6 +112,19 @@ class GlobalExceptionHandlerTest {
         assertThat(result).bodyText().doesNotContain("line:");
     }
 
+    @Test
+    void dataIntegrityViolationReturns409WithoutInternalDetails() {
+        MvcTestResult result = mvc.post().uri("/test/duplicate").exchange();
+
+        assertThat(result)
+                .hasStatus(HttpStatus.CONFLICT)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("The request conflicts with the current state of the data");
+        assertThat(result).bodyText().doesNotContain("categories_slug_key");
+    }
+
     @RestController
     static class ThrowingController {
 
@@ -136,6 +150,12 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/test/validated")
         void validated(@Valid @RequestBody ValidatedRequest request) {}
+
+        @PostMapping("/test/duplicate")
+        void duplicate() {
+            throw new DataIntegrityViolationException(
+                    "Duplicate key value violates unique constraint \"categories_slug_key\"");
+        }
     }
 
     record ValidatedRequest(@NotBlank String name) {}
