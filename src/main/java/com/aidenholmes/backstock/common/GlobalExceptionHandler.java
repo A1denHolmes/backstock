@@ -1,6 +1,7 @@
 package com.aidenholmes.backstock.common;
 
 import java.util.List;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,12 +23,15 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final String UNEXPECTED_ERROR_DETAIL = "An unexpected error occurred";
     private static final String DATA_INTEGRITY_VIOLATION_DETAIL =
             "The request conflicts with the current state of the data";
+    private static final String INVALID_FIELD_DEFAULT_MESSAGE = "is invalid";
 
     @Override
     protected @Nullable ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         List<InvalidField> errors = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> new InvalidField(error.getField(), error.getDefaultMessage()))
+                .map(error -> new InvalidField(
+                        error.getField(),
+                        Objects.requireNonNullElse(error.getDefaultMessage(), INVALID_FIELD_DEFAULT_MESSAGE)))
                 .toList();
         ProblemDetail body = ex.getBody();
         body.setProperty("errors", errors);

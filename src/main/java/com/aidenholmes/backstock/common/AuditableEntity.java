@@ -5,6 +5,7 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
 import java.time.Instant;
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -22,9 +23,9 @@ public abstract class AuditableEntity extends BaseEntity {
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    private Instant createdAt;
+    private @Nullable Instant createdAt;
 
     @LastModifiedDate
     @Column(nullable = false)
-    private Instant updatedAt;
+    private @Nullable Instant updatedAt;
 }
