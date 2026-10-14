@@ -14,6 +14,9 @@ Formatting follows [.editorconfig](../.editorconfig) and is checked by Spotless 
 - Endpoints that take a resource ID check that the caller owns the resource.
 - Endpoints are versioned in the path: `/api/v1/...`. Each controller is documented with springdoc annotations.
 - Logging uses SLF4J. Personal data and credentials are not logged.
+- Every package in main code is marked `@NullMarked` in `package-info.java`. 
+  Nullable values are marked with JSpecify `@Nullable`, written before the type.
+- A request DTO component without `@Nullable` has a validation constraint that rejects null.
 
 ## Data
 
