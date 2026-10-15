@@ -135,7 +135,10 @@
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>--should-stop=ifError=FLOW</arg>
-                                <arg>-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=com.aidenholmes.backstock</arg>
+                                <arg>-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR
+                                    -XepOpt:NullAway:AnnotatedPackages=com.aidenholmes.backstock
+                                    -XepOpt:NullAway:JSpecifyMode=true -XepOpt:NullAway:JSpecifyJDKModels=true
+                                </arg>
                             </compilerArgs>
                         </configuration>
                     </execution>
