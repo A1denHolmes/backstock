@@ -8,6 +8,8 @@ spring:
     hikari:
       data-source-properties:
         reWriteBatchedInserts: true
+        # Keeps query parameter values and server error details out of exception messages
+        logServerErrorDetail: false
   jpa:
     open-in-view: false
     hibernate:
