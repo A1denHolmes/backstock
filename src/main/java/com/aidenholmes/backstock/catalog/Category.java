@@ -30,4 +30,12 @@ class Category extends AuditableEntity {
         this.name = name;
         this.slug = slug;
     }
+
+    void rename(String name) {
+        this.name = name;
+    }
+
+    void deactivate() {
+        active = false;
+    }
 }

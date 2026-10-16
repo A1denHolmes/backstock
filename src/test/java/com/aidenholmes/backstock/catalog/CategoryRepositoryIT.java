@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aidenholmes.backstock.common.PostgresContainerSupport;
 import com.aidenholmes.backstock.config.JpaAuditingConfig;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,5 +68,70 @@ class CategoryRepositoryIT extends PostgresContainerSupport {
 
         assertThat(category.getCreatedAt()).isNotNull();
         assertThat(category.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void activeCategoriesAreSortedByName() {
+        repository.saveAndFlush(new Category("Phones", "phones"));
+        repository.saveAndFlush(new Category("Books", "books"));
+        entityManager.clear();
+
+        List<Category> found = repository.findAllByActiveTrueOrderByNameAscIdAsc();
+
+        assertThat(found).extracting(Category::getName).containsExactly("Books", "Phones");
+    }
+
+    @Test
+    void deactivatedCategoryIsExcludedFromList() {
+        Category deactivated = repository.save(new Category("Deactivated", "deactivated"));
+        repository.save(new Category("Active", "active"));
+        deactivated.deactivate();
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Category> found = repository.findAllByActiveTrueOrderByNameAscIdAsc();
+
+        assertThat(found).extracting(Category::getSlug).containsExactly("active");
+    }
+
+    @Test
+    void activeCategoryIsFoundById() {
+        Category active = repository.saveAndFlush(new Category("Active", "active"));
+        Long id = Objects.requireNonNull(active.getId());
+        entityManager.clear();
+
+        Optional<Category> found = repository.findByIdAndActiveTrue(id);
+
+        assertThat(found).map(Category::getSlug).hasValue("active");
+    }
+
+    @Test
+    void deactivatedCategoryIsNotFoundById() {
+        Category deactivated = repository.save(new Category("Deactivated", "deactivated"));
+        deactivated.deactivate();
+        Long id = Objects.requireNonNull(deactivated.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findByIdAndActiveTrue(id)).isEmpty();
+    }
+
+    @Test
+    void slugOfDeactivatedCategoryRemainsTaken() {
+        Category deactivated = repository.save(new Category("Deactivated", "deactivated"));
+        deactivated.deactivate();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.existsBySlug("deactivated")).isTrue();
+    }
+
+    @Test
+    void unknownSlugIsFree() {
+        repository.saveAndFlush(new Category("Books", "books"));
+
+        boolean exists = repository.existsBySlug("phones");
+
+        assertThat(exists).isFalse();
     }
 }
