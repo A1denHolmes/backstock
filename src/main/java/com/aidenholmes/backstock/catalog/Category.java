@@ -27,12 +27,12 @@ class Category extends AuditableEntity {
     private boolean active = true;
 
     Category(String name, String slug) {
-        this.name = name;
+        this.name = name.strip();
         this.slug = slug;
     }
 
     void rename(String name) {
-        this.name = name;
+        this.name = name.strip();
     }
 
     void deactivate() {
