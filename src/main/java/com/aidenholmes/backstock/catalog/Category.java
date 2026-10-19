@@ -15,7 +15,12 @@ import lombok.NoArgsConstructor;
 class Category extends AuditableEntity {
 
     static final int NAME_MAX_LENGTH = 100;
+    static final String NAME_PATTERN = "\\P{C}*";
+    static final String NAME_PATTERN_MESSAGE = "must not contain control or invisible formatting characters";
     static final int SLUG_MAX_LENGTH = 100;
+    static final String SLUG_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*";
+    static final String SLUG_PATTERN_MESSAGE =
+            "must contain lowercase Latin letters and digits, separated by single hyphens";
 
     @Column(nullable = false, length = NAME_MAX_LENGTH)
     private String name;
