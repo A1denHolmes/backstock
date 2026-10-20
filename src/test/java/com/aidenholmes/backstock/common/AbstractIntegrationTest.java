@@ -1,7 +1,7 @@
 package com.aidenholmes.backstock.common;
 
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,7 +20,7 @@ public abstract class AbstractIntegrationTest extends PostgresContainerSupport {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @BeforeEach
+    @AfterEach
     void cleanDatabase() {
         List<String> tables = jdbcTemplate.queryForList(SELECT_TABLES, String.class);
         if (!tables.isEmpty()) {
