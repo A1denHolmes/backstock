@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -127,6 +129,19 @@ class GlobalExceptionHandlerTest {
         assertThat(result).bodyText().doesNotContain("categories_slug_key");
     }
 
+    @Test
+    void optimisticLockingFailureReturns409WithoutInternalDetail() {
+        MvcTestResult result = mvc.put().uri("/test/optimistic-locking-failure").exchange();
+
+        assertThat(result)
+                .hasStatus(HttpStatus.CONFLICT)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("The resource was modified by another request. Reload it and try again");
+        assertThat(result).bodyText().doesNotContain("leak-marker");
+    }
+
     @RestController
     static class ThrowingController {
 
@@ -157,6 +172,11 @@ class GlobalExceptionHandlerTest {
         void duplicate() {
             throw new DataIntegrityViolationException(
                     "Duplicate key value violates unique constraint \"categories_slug_key\"");
+        }
+
+        @PutMapping("/test/optimistic-locking-failure")
+        void optimisticLockingFailure() {
+            throw new OptimisticLockingFailureException("secret internal detail: \"leak-marker\"");
         }
     }
 

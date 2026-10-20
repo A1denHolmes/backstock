@@ -5,6 +5,7 @@ import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -23,6 +24,8 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final String UNEXPECTED_ERROR_DETAIL = "An unexpected error occurred";
     private static final String DATA_INTEGRITY_VIOLATION_DETAIL =
             "The request conflicts with the current state of the data";
+    private static final String OPTIMISTIC_LOCKING_FAILURE_DETAIL =
+            "The resource was modified by another request. Reload it and try again";
     private static final String INVALID_FIELD_DEFAULT_MESSAGE = "is invalid";
 
     @Override
@@ -58,6 +61,11 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleDataIntegrityViolation() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, DATA_INTEGRITY_VIOLATION_DETAIL);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail handleOptimisticLockingFailure() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, OPTIMISTIC_LOCKING_FAILURE_DETAIL);
     }
 
     @ExceptionHandler(Exception.class)
