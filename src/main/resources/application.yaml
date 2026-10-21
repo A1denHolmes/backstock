@@ -20,3 +20,5 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
+springdoc:
+  default-produces-media-type: application/json
