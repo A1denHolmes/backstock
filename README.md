@@ -9,6 +9,8 @@ REST API for an online store, built with Java 25, Spring Boot 4 and PostgreSQL.
 
 - [Coding conventions](docs/conventions.md)
 - [Architecture Decision Records](docs/adr)
+- API reference: Swagger UI at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs` while the application
+  is running. Both are disabled in the `prod` profile.
 
 ## License
 

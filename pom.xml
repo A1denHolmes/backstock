@@ -29,11 +29,14 @@
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <error-prone-core.version>2.50.0</error-prone-core.version>
         <nullaway.version>0.14.2</nullaway.version>
+        <springdoc-openapi-starter-webmvc-ui.version>3.1.1</springdoc-openapi-starter-webmvc-ui.version>
 
         <!-- CVE-2026-65637, CVE-2026-78437 and other Tomcat CVEs. Remove after Spring Boot upgrade. -->
         <tomcat.version>11.0.26</tomcat.version>
         <!-- CVE-2026-89407, CVE-2026-89425 and other Jackson CVEs. Remove after Spring Boot upgrade. -->
         <jackson-bom.version>3.1.7</jackson-bom.version>
+        <!-- CVE-2026-89407, CVE-2026-89425 and other Jackson CVEs. Remove after Spring Boot upgrade. -->
+        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 
         <argLine/>
     </properties>
@@ -58,6 +61,11 @@
         <dependency>
             <groupId>org.jspecify</groupId>
             <artifactId>jspecify</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
         </dependency>
 
         <dependency>
