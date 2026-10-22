@@ -59,8 +59,8 @@ class Product extends AuditableEntity {
             int stockQuantity,
             Category category,
             @Nullable String imageUrl) {
-        this.sku = sku;
         this.name = name.strip();
+        this.sku = sku;
         this.description = description;
         this.price = price;
         this.stockQuantity = stockQuantity;

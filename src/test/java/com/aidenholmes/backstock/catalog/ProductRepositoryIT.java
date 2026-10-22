@@ -99,6 +99,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
         Category category = persistCategory();
         repository.saveAndFlush(new Product("Book", "BOOK", null, new BigDecimal("200.00"), 1, category, null));
         Product product = new Product("AnotherBook", "BOOK", null, new BigDecimal("100.00"), 1, category, null);
+
         assertThatThrownBy(() -> repository.saveAndFlush(product))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("products_sku_key");
