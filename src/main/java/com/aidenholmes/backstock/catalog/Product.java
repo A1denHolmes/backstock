@@ -20,9 +20,15 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "products")
 class Product extends AuditableEntity {
 
-    private static final int NAME_MAX_LENGTH = 200;
-    private static final int SKU_MAX_LENGTH = 64;
-    private static final int IMAGE_URL_MAX_LENGTH = 2048;
+    static final int NAME_MAX_LENGTH = 200;
+    static final String NAME_PATTERN = "\\P{C}*";
+    static final String NAME_PATTERN_MESSAGE = "must not contain control or invisible formatting characters";
+    static final int SKU_MAX_LENGTH = 64;
+    static final String SKU_PATTERN = "[A-Z0-9]+(?:-[A-Z0-9]+)*";
+    static final String SKU_PATTERN_MESSAGE =
+            "must contain uppercase Latin letters and digits, separated by single hyphens";
+    static final int IMAGE_URL_MAX_LENGTH = 2048;
+    static final int DESCRIPTION_MAX_LENGTH = 5000;
 
     @Column(nullable = false, length = NAME_MAX_LENGTH)
     private String name;
@@ -66,5 +72,18 @@ class Product extends AuditableEntity {
         this.stockQuantity = stockQuantity;
         this.category = category;
         this.imageUrl = imageUrl;
+    }
+
+    void update(
+            String name, @Nullable String description, BigDecimal price, Category category, @Nullable String imageUrl) {
+        this.name = name.strip();
+        this.description = description;
+        this.price = price;
+        this.category = category;
+        this.imageUrl = imageUrl;
+    }
+
+    void deactivate() {
+        active = false;
     }
 }

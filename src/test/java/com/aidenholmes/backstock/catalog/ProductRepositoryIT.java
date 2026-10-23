@@ -7,6 +7,7 @@ import com.aidenholmes.backstock.common.PostgresContainerSupport;
 import com.aidenholmes.backstock.config.JpaAuditingConfig;
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.Optional;
 import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,6 +120,52 @@ class ProductRepositoryIT extends PostgresContainerSupport {
                 .getStockQuantity();
 
         assertThat(stock).isEqualTo(1);
+    }
+
+    @Test
+    void activeProductIsFoundById() {
+        Product saved = repository.saveAndFlush(new Product(
+                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        entityManager.clear();
+
+        Optional<Product> found = repository.findByIdAndActiveTrue(Objects.requireNonNull(saved.getId()));
+
+        assertThat(found).map(Product::getSku).hasValue("BOOK");
+    }
+
+    @Test
+    void deactivatedProductIsNotFoundById() {
+        Product saved = repository.saveAndFlush(new Product(
+                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        saved.deactivate();
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Product> found = repository.findByIdAndActiveTrue(Objects.requireNonNull(saved.getId()));
+
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void unknownSkuIsFree() {
+        repository.saveAndFlush(new Product(
+                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        entityManager.clear();
+
+        boolean exists = repository.existsBySku("PHONE");
+
+        assertThat(exists).isFalse();
+    }
+
+    @Test
+    void skuOfDeactivatedProductRemainsTaken() {
+        Product saved = repository.saveAndFlush(new Product(
+                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        saved.deactivate();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.existsBySku("BOOK")).isTrue();
     }
 
     private Category persistCategory() {
