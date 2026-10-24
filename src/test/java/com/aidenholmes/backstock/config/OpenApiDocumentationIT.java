@@ -25,10 +25,26 @@ class OpenApiDocumentationIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void apiDocsDescribeProductEndpoints() {
+        assertThat(mvc.get().uri("/v3/api-docs"))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .hasPath("$.paths['/api/v1/products']")
+                .hasPath("$.paths['/api/v1/products/{id}']");
+    }
+
+    @Test
     void apiDocsContainConfiguredInfo() {
         assertThat(mvc.get().uri("/v3/api-docs"))
                 .bodyJson()
                 .extractingPath("$.info.title")
                 .isEqualTo("Backstock API");
+    }
+
+    @Test
+    void createdProductResponseHasBody() {
+        assertThat(mvc.get().uri("/v3/api-docs"))
+                .bodyJson()
+                .hasPath("$.paths['/api/v1/products'].post.responses['201'].content");
     }
 }
