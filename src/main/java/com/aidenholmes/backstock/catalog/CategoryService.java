@@ -49,10 +49,14 @@ class CategoryService {
 
     @Transactional
     void deactivate(long id) {
-        Category category = findActiveOrThrow(id);
+        Category category = categoryRepository
+                .findForUpdateByIdAndActiveTrue(id)
+                .orElseThrow(() -> new NotFoundException("Category " + id + " not found"));
+
         if (productRepository.existsByCategoryIdAndActiveTrue(id)) {
             throw new ConflictException("Category " + id + " contains active products");
         }
+
         category.deactivate();
     }
 

@@ -113,7 +113,7 @@ class CategoryServiceTest {
     void categoryWithoutActiveProductsIsDeactivated() {
         Category category = persisted(new Category("Books", "books"), 1L);
         when(productRepository.existsByCategoryIdAndActiveTrue(1L)).thenReturn(false);
-        when(categoryRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findForUpdateByIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
 
         service.deactivate(1L);
 
@@ -124,7 +124,7 @@ class CategoryServiceTest {
     void categoryWithActiveProductsCannotBeDeactivated() {
         Category category = persisted(new Category("Books", "books"), 1L);
         when(productRepository.existsByCategoryIdAndActiveTrue(1L)).thenReturn(true);
-        when(categoryRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findForUpdateByIdAndActiveTrue(1L)).thenReturn(Optional.of(category));
 
         assertThatThrownBy(() -> service.deactivate(1L))
                 .isInstanceOf(ConflictException.class)
@@ -134,21 +134,21 @@ class CategoryServiceTest {
 
     @Test
     void unknownCategoryCannotBeDeactivated() {
-        when(categoryRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
+        when(categoryRepository.findForUpdateByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.deactivate(1L)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
-    void categoryIsLoadedBeforeProductsAreChecked() {
-        when(categoryRepository.findByIdAndActiveTrue(1L))
+    void categoryIsLockedBeforeProductsAreChecked() {
+        when(categoryRepository.findForUpdateByIdAndActiveTrue(1L))
                 .thenReturn(Optional.of(persisted(new Category("Books", "books"), 1L)));
         when(productRepository.existsByCategoryIdAndActiveTrue(1L)).thenReturn(false);
 
         service.deactivate(1L);
 
         InOrder inOrder = inOrder(categoryRepository, productRepository);
-        inOrder.verify(categoryRepository).findByIdAndActiveTrue(1L);
+        inOrder.verify(categoryRepository).findForUpdateByIdAndActiveTrue(1L);
         inOrder.verify(productRepository).existsByCategoryIdAndActiveTrue(1L);
     }
 
