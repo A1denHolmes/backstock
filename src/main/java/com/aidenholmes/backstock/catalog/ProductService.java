@@ -62,7 +62,7 @@ class ProductService {
 
     private Category findActiveCategoryOrThrow(long id) {
         return categoryRepository
-                .findByIdAndActiveTrue(id)
+                .findForShareByIdAndActiveTrue(id)
                 .orElseThrow(() -> new NotFoundException("Category " + id + " not found"));
     }
 }

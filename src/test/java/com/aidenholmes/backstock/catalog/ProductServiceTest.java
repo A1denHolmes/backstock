@@ -46,7 +46,7 @@ class ProductServiceTest {
         when(productRepository.existsBySku("BOOK")).thenReturn(false);
         when(productRepository.save(any(Product.class)))
                 .thenAnswer(invocation -> persistedProduct(invocation.getArgument(0), 1L));
-        when(categoryRepository.findByIdAndActiveTrue(1L))
+        when(categoryRepository.findForShareByIdAndActiveTrue(1L))
                 .thenReturn(Optional.of(persistedCategory(new Category("Books", "books"), 1L)));
 
         ProductResponse created = service.create(CREATE_BOOK);
@@ -67,7 +67,7 @@ class ProductServiceTest {
     @Test
     void productWithUnknownCategoryIsRejected() {
         when(productRepository.existsBySku("BOOK")).thenReturn(false);
-        when(categoryRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
+        when(categoryRepository.findForShareByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.create(CREATE_BOOK)).isInstanceOf(NotFoundException.class);
         verify(productRepository, never()).save(any());
@@ -94,7 +94,7 @@ class ProductServiceTest {
     @Test
     void existingProductIsUpdated() {
         when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(persistedBook()));
-        when(categoryRepository.findByIdAndActiveTrue(2L))
+        when(categoryRepository.findForShareByIdAndActiveTrue(2L))
                 .thenReturn(Optional.of(persistedCategory(new Category("Phones", "phones"), 2L)));
 
         ProductResponse updated = service.update(1L, UPDATE_TO_PHONE);
@@ -125,7 +125,7 @@ class ProductServiceTest {
     @Test
     void productCannotBeMovedToUnknownCategory() {
         when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(persistedBook()));
-        when(categoryRepository.findByIdAndActiveTrue(2L)).thenReturn(Optional.empty());
+        when(categoryRepository.findForShareByIdAndActiveTrue(2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(1L, UPDATE_TO_PHONE))
                 .isInstanceOf(NotFoundException.class)
