@@ -30,8 +30,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
     @Test
     void productIsSavedWithCategory() {
         Category category = persistCategory();
-        Product product =
-                new Product("Book", "BOOK", "Description", new BigDecimal("100.00"), 1, category, "http://example.url");
+        Product product = newBook(category);
         Long id = Objects.requireNonNull(repository.saveAndFlush(product).getId());
         entityManager.clear();
 
@@ -52,8 +51,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
     @Test
     void categoryIsLoadedLazily() {
         Category category = persistCategory();
-        Product product =
-                new Product("Book", "BOOK", "Description", new BigDecimal("100.00"), 1, category, "http://example.url");
+        Product product = newBook(category);
         Long id = Objects.requireNonNull(repository.saveAndFlush(product).getId());
         entityManager.clear();
 
@@ -98,7 +96,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
     @Test
     void duplicateSkuCannotBeStored() {
         Category category = persistCategory();
-        repository.saveAndFlush(new Product("Book", "BOOK", null, new BigDecimal("200.00"), 1, category, null));
+        repository.saveAndFlush(newBook(category));
         Product product = new Product("AnotherBook", "BOOK", null, new BigDecimal("100.00"), 1, category, null);
 
         assertThatThrownBy(() -> repository.saveAndFlush(product))
@@ -108,8 +106,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
 
     @Test
     void stockQuantityIsNotUpdatedThroughEntity() {
-        Product saved = repository.saveAndFlush(new Product(
-                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        Product saved = repository.saveAndFlush(newBook(persistCategory()));
         ReflectionTestUtils.setField(saved, "stockQuantity", 5);
         entityManager.flush();
         entityManager.clear();
@@ -124,8 +121,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
 
     @Test
     void activeProductIsFoundById() {
-        Product saved = repository.saveAndFlush(new Product(
-                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        Product saved = repository.saveAndFlush(newBook(persistCategory()));
         entityManager.clear();
 
         Optional<Product> found = repository.findByIdAndActiveTrue(Objects.requireNonNull(saved.getId()));
@@ -135,8 +131,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
 
     @Test
     void deactivatedProductIsNotFoundById() {
-        Product saved = repository.saveAndFlush(new Product(
-                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        Product saved = repository.saveAndFlush(newBook(persistCategory()));
         saved.deactivate();
         entityManager.flush();
         entityManager.clear();
@@ -148,8 +143,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
 
     @Test
     void unknownSkuIsFree() {
-        repository.saveAndFlush(new Product(
-                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        repository.saveAndFlush(newBook(persistCategory()));
         entityManager.clear();
 
         boolean exists = repository.existsBySku("PHONE");
@@ -159,8 +153,7 @@ class ProductRepositoryIT extends PostgresContainerSupport {
 
     @Test
     void skuOfDeactivatedProductRemainsTaken() {
-        Product saved = repository.saveAndFlush(new Product(
-                "Book", "BOOK", "Description", new BigDecimal("100.00"), 1, persistCategory(), "http://example.url"));
+        Product saved = repository.saveAndFlush(newBook(persistCategory()));
         saved.deactivate();
         entityManager.flush();
         entityManager.clear();
@@ -168,7 +161,46 @@ class ProductRepositoryIT extends PostgresContainerSupport {
         assertThat(repository.existsBySku("BOOK")).isTrue();
     }
 
+    @Test
+    void activeProductInCategoryIsDetected() {
+        Category category = persistCategory();
+        repository.saveAndFlush(newBook(category));
+        entityManager.clear();
+
+        boolean exists = repository.existsByCategoryIdAndActiveTrue(Objects.requireNonNull(category.getId()));
+
+        assertThat(exists).isTrue();
+    }
+
+    @Test
+    void deactivatedProductsInCategoryAreIgnored() {
+        Category category = persistCategory();
+        Product product = repository.save(newBook(category));
+        product.deactivate();
+        entityManager.flush();
+        entityManager.clear();
+
+        boolean exists = repository.existsByCategoryIdAndActiveTrue(Objects.requireNonNull(category.getId()));
+
+        assertThat(exists).isFalse();
+    }
+
+    @Test
+    void activeProductInAnotherCategoryIsIgnored() {
+        Category books = persistCategory();
+        Category phones = entityManager.persist(new Category("Phones", "phones"));
+        repository.saveAndFlush(newBook(books));
+
+        boolean exists = repository.existsByCategoryIdAndActiveTrue(Objects.requireNonNull(phones.getId()));
+
+        assertThat(exists).isFalse();
+    }
+
     private Category persistCategory() {
         return entityManager.persist(new Category("Books", "books"));
+    }
+
+    private static Product newBook(Category category) {
+        return new Product("Book", "BOOK", "Description", new BigDecimal("100.00"), 1, category, "http://example.url");
     }
 }

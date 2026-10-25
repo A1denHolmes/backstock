@@ -11,11 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 class CategoryService {
 
-    private final CategoryRepository repository;
+    private final CategoryRepository categoryRepository;
+
+    private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
     List<CategoryResponse> findAll() {
-        return repository.findAllByActiveTrueOrderByNameAscIdAsc().stream()
+        return categoryRepository.findAllByActiveTrueOrderByNameAscIdAsc().stream()
                 .map(CategoryResponse::from)
                 .toList();
     }
@@ -27,11 +29,11 @@ class CategoryService {
 
     @Transactional
     CategoryResponse create(CreateCategoryRequest request) {
-        if (repository.existsBySlug(request.slug())) {
+        if (categoryRepository.existsBySlug(request.slug())) {
             throw new ConflictException("Category with slug \"" + request.slug() + "\" already exists");
         }
 
-        Category created = repository.save(new Category(request.name(), request.slug()));
+        Category created = categoryRepository.save(new Category(request.name(), request.slug()));
         return CategoryResponse.from(created);
     }
 
@@ -40,18 +42,22 @@ class CategoryService {
         Category category = findActiveOrThrow(id);
 
         category.rename(request.name());
-        repository.flush();
+        categoryRepository.flush();
 
         return CategoryResponse.from(category);
     }
 
     @Transactional
     void deactivate(long id) {
-        findActiveOrThrow(id).deactivate();
+        Category category = findActiveOrThrow(id);
+        if (productRepository.existsByCategoryIdAndActiveTrue(id)) {
+            throw new ConflictException("Category " + id + " contains active products");
+        }
+        category.deactivate();
     }
 
     private Category findActiveOrThrow(long id) {
-        return repository
+        return categoryRepository
                 .findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new NotFoundException("Category " + id + " not found"));
     }

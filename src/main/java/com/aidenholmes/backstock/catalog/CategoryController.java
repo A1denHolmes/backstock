@@ -139,7 +139,7 @@ class CategoryController {
                             schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(
             responseCode = "409",
-            description = "Category was modified by another request",
+            description = "Category has active products or was modified by another request",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
