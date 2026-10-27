@@ -21,7 +21,7 @@ To detect this, the server needs the version the client based its change on. Req
 (see [conventions](../conventions.md)). JPA does not allow the application to set the version attribute, so a version
 received from the client cannot be written into the entity for Hibernate to compare.
 
-Product stock is changed by atomic `UPDATE` statements that do not increment the version, so that stock changes and
+Product stock will be changed by atomic `UPDATE` statements that do not increment the version, so that stock changes and
 edits of product fields do not conflict.
 
 ## Options considered
