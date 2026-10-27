@@ -20,6 +20,8 @@ class OpenApiConfig {
 
                 Errors are returned as Problem Details (RFC 9457) with the `application/problem+json` content type.
                 Validation errors list the invalid fields in `errors`. Timestamps are in UTC in ISO 8601 format.
+                Requests that update or delete a resource must send the `ETag` from the latest read of that resource in
+                the `If-Match` header. Without the header the response is 428, with an outdated value 412.
                 """)
                         .license(new License().name("MIT License").url("https://opensource.org/licenses/MIT")));
     }

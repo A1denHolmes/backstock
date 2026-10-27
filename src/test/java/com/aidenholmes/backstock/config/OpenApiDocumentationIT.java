@@ -25,6 +25,21 @@ class OpenApiDocumentationIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void ifMatchIsRequiredForCategoryUpdateAndDeactivation() {
+        assertThat(mvc.get().uri("/v3/api-docs"))
+                .bodyJson()
+                .extractingPath("$.paths['/api/v1/categories/{id}'].put.parameters[?(@.name == 'If-Match')].required")
+                .asArray()
+                .containsExactly(true);
+        assertThat(mvc.get().uri("/v3/api-docs"))
+                .bodyJson()
+                .extractingPath(
+                        "$.paths['/api/v1/categories/{id}'].delete.parameters[?(@.name == 'If-Match')].required")
+                .asArray()
+                .containsExactly(true);
+    }
+
+    @Test
     void apiDocsDescribeProductEndpoints() {
         assertThat(mvc.get().uri("/v3/api-docs"))
                 .hasStatus(HttpStatus.OK)

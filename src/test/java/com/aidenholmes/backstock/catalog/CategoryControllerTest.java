@@ -3,10 +3,14 @@ package com.aidenholmes.backstock.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.aidenholmes.backstock.common.ConflictException;
+import com.aidenholmes.backstock.common.EntityTags;
 import com.aidenholmes.backstock.common.NotFoundException;
+import com.aidenholmes.backstock.common.VersionMismatchException;
+import com.aidenholmes.backstock.common.Versioned;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,11 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 class CategoryControllerTest {
 
     private static final Instant NOW = Instant.parse("2026-10-19T10:00:00Z");
+    private static final UpdateCategoryRequest RENAME_REQUEST = new UpdateCategoryRequest("Renamed");
+    private static final Versioned<CategoryResponse> RENAMED_RESPONSE =
+            new Versioned<>(new CategoryResponse(1L, "Renamed", "books", NOW, NOW), 2L);
+    private static final Versioned<CategoryResponse> BOOKS_RESPONSE =
+            new Versioned<>(new CategoryResponse(1L, "Books", "books", NOW, NOW), 1L);
 
     @Autowired
     private MockMvcTester mvc;
@@ -63,10 +72,11 @@ class CategoryControllerTest {
 
     @Test
     void categoryIsReturnedById() {
-        when(service.findById(1L)).thenReturn(new CategoryResponse(1L, "Books", "books", NOW, NOW));
+        when(service.findById(1L)).thenReturn(BOOKS_RESPONSE);
 
         assertThat(mvc.get().uri("/api/v1/categories/1"))
                 .hasStatus(HttpStatus.OK)
+                .hasHeader(HttpHeaders.ETAG, EntityTags.of(1L))
                 .bodyJson()
                 .isStrictlyEqualTo("""
                     {
@@ -98,9 +108,19 @@ class CategoryControllerTest {
     }
 
     @Test
-    void categoryIsCreatedAndReturns201WithLocationAndBody() {
-        when(service.create(new CreateCategoryRequest("Books", "books")))
-                .thenReturn(new CategoryResponse(1L, "Books", "books", NOW, NOW));
+    void matchingIfNoneMatchReturns304() {
+        when(service.findById(1L)).thenReturn(BOOKS_RESPONSE);
+
+        assertThat(mvc.get().uri("/api/v1/categories/1").header(HttpHeaders.IF_NONE_MATCH, EntityTags.of(1L)))
+                .hasStatus(HttpStatus.NOT_MODIFIED)
+                .hasHeader(HttpHeaders.ETAG, "\"1\"")
+                .body()
+                .isEmpty();
+    }
+
+    @Test
+    void categoryIsCreatedAndReturns201WithLocationEtagAndBody() {
+        when(service.create(new CreateCategoryRequest("Books", "books"))).thenReturn(BOOKS_RESPONSE);
 
         assertThat(mvc.post()
                         .uri("/api/v1/categories")
@@ -110,6 +130,7 @@ class CategoryControllerTest {
                         """))
                 .hasStatus(HttpStatus.CREATED)
                 .hasHeader(HttpHeaders.LOCATION, "http://localhost/api/v1/categories/1")
+                .hasHeader(HttpHeaders.ETAG, EntityTags.of(1L))
                 .bodyJson()
                 .isStrictlyEqualTo("""
                     {
@@ -124,8 +145,7 @@ class CategoryControllerTest {
 
     @Test
     void locationIgnoresQueryParameters() {
-        when(service.create(new CreateCategoryRequest("Books", "books")))
-                .thenReturn(new CategoryResponse(1L, "Books", "books", NOW, NOW));
+        when(service.create(new CreateCategoryRequest("Books", "books"))).thenReturn(BOOKS_RESPONSE);
 
         assertThat(mvc.post()
                         .uri("/api/v1/categories?source=admin")
@@ -185,17 +205,18 @@ class CategoryControllerTest {
     }
 
     @Test
-    void categoryIsRenamedAndReturns200WithBody() {
-        when(service.update(1L, new UpdateCategoryRequest("Renamed")))
-                .thenReturn(new CategoryResponse(1L, "Renamed", "books", NOW, NOW));
+    void categoryIsRenamedAndReturns200WithEtagAndBody() {
+        when(service.update(1L, RENAME_REQUEST, 1L)).thenReturn(RENAMED_RESPONSE);
 
         assertThat(mvc.put()
                         .uri("/api/v1/categories/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {"name": "Renamed"}
                         """))
                 .hasStatus(HttpStatus.OK)
+                .hasHeader(HttpHeaders.ETAG, EntityTags.of(2L))
                 .bodyJson()
                 .isStrictlyEqualTo("""
                     {
@@ -212,6 +233,7 @@ class CategoryControllerTest {
     void blankNewNameReturns400() {
         assertThat(mvc.put()
                         .uri("/api/v1/categories/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {"name": "   "}
@@ -221,11 +243,11 @@ class CategoryControllerTest {
 
     @Test
     void renamingOfUnknownCategoryReturns404() {
-        when(service.update(1L, new UpdateCategoryRequest("Renamed")))
-                .thenThrow(new NotFoundException("Category 1 not found"));
+        when(service.update(1L, RENAME_REQUEST, 1L)).thenThrow(new NotFoundException("Category 1 not found"));
 
         assertThat(mvc.put()
                         .uri("/api/v1/categories/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {"name": "Renamed"}
@@ -237,8 +259,88 @@ class CategoryControllerTest {
     }
 
     @Test
+    void renamingWithoutIfMatchReturns428() {
+        assertThat(mvc.put()
+                        .uri("/api/v1/categories/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"name": "Renamed"}
+                        """))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match header is required. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void renamingWithWildcardIfMatchReturns428() {
+        assertThat(mvc.put()
+                        .uri("/api/v1/categories/1")
+                        .header(HttpHeaders.IF_MATCH, "*")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"name": "Renamed"}
+                        """))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match: * is not accepted. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void renamingWithWeakEntityTagReturns412() {
+        assertThat(mvc.put()
+                        .uri("/api/v1/categories/1")
+                        .header(HttpHeaders.IF_MATCH, "W/\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"name": "Renamed"}
+                        """))
+                .hasStatus(HttpStatus.PRECONDITION_FAILED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match does not match the current version of the resource");
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void renamingWithOutdatedVersionReturns412() {
+        when(service.update(1L, RENAME_REQUEST, 1L)).thenThrow(new VersionMismatchException("Version mismatch"));
+
+        assertThat(mvc.put()
+                        .uri("/api/v1/categories/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"name": "Renamed"}
+                        """))
+                .hasStatus(HttpStatus.PRECONDITION_FAILED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("Version mismatch");
+    }
+
+    @Test
     void categoryIsDeactivatedAndReturns204() {
-        assertThat(mvc.delete().uri("/api/v1/categories/1")).hasStatus(HttpStatus.NO_CONTENT);
-        verify(service).deactivate(1L);
+        assertThat(mvc.delete().uri("/api/v1/categories/1").header(HttpHeaders.IF_MATCH, EntityTags.of(1L)))
+                .hasStatus(HttpStatus.NO_CONTENT);
+        verify(service).deactivate(1L, 1L);
+    }
+
+    @Test
+    void deactivationWithoutIfMatchReturns428() {
+        assertThat(mvc.delete().uri("/api/v1/categories/1"))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match header is required. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
     }
 }
