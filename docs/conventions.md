@@ -12,6 +12,7 @@ Formatting follows [.editorconfig](../.editorconfig) and is checked by Spotless 
 - DTOs are records named `...Request` and `...Response`. Mapping is written by hand in a static `from()`.
 - Request DTOs do not contain server-managed fields: `id`, `role`, `version`, status and audit fields.
 - Endpoints that take a resource ID check that the caller owns the resource.
+- Responses with a single versioned resource carry `ETag`. Endpoints that update or delete it require `If-Match`.
 - Endpoints are versioned in the path: `/api/v1/...`. Each controller is documented with springdoc annotations.
 - Logging uses SLF4J. Personal data and credentials are not logged.
 - Every package in main code is marked `@NullMarked` in `package-info.java`. 

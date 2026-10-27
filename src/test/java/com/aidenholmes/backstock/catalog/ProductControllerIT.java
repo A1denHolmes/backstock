@@ -3,6 +3,7 @@ package com.aidenholmes.backstock.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
+import com.aidenholmes.backstock.common.EntityTags;
 import java.math.BigDecimal;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
@@ -29,12 +30,13 @@ class ProductControllerIT extends AbstractIntegrationTest {
     @Test
     void stockQuantityInUpdateBodyIsIgnored() {
         Category books = categoryRepository.save(new Category("Books", "books"));
-        long id = Objects.requireNonNull(productRepository
-                .save(new Product("Book", "BOOK", null, new BigDecimal("10.00"), 1, books, null))
-                .getId());
+        Product product =
+                productRepository.save(new Product("Book", "BOOK", null, new BigDecimal("10.00"), 1, books, null));
+        long id = Objects.requireNonNull(product.getId());
 
         assertThat(mvc.put()
                         .uri("/api/v1/products/{id}", id)
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(product.getVersion()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {

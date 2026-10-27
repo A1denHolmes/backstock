@@ -56,6 +56,16 @@ class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return forDomainException(HttpStatus.UNPROCESSABLE_CONTENT, ex);
     }
 
+    @ExceptionHandler(VersionMismatchException.class)
+    ProblemDetail handleVersionMismatch(VersionMismatchException ex) {
+        return forDomainException(HttpStatus.PRECONDITION_FAILED, ex);
+    }
+
+    @ExceptionHandler(PreconditionRequiredException.class)
+    ProblemDetail handlePreconditionRequired(PreconditionRequiredException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.PRECONDITION_REQUIRED, ex.getMessage());
+    }
+
     // NOT NULL violations also end up here, although they indicate a bug rather than a conflict.
     // They are already logged by Hibernate.
     @ExceptionHandler(DataIntegrityViolationException.class)

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
 import com.aidenholmes.backstock.common.ConflictException;
 import com.aidenholmes.backstock.common.NotFoundException;
+import com.aidenholmes.backstock.common.VersionMismatchException;
+import com.aidenholmes.backstock.common.Versioned;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -24,6 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 class CategoryServiceIT extends AbstractIntegrationTest {
 
+    private static final UpdateCategoryRequest RENAME_REQUEST = new UpdateCategoryRequest("Renamed");
+
     @Autowired
     private CategoryRepository repository;
 
@@ -38,15 +42,14 @@ class CategoryServiceIT extends AbstractIntegrationTest {
 
     @Test
     void concurrentDeactivationMakesRenameFail() {
-        long id = Objects.requireNonNull(
-                repository.save(new Category("Books", "books")).getId());
+        long id = Objects.requireNonNull(repository.save(newBooks()).getId());
         TransactionTemplate outer = new TransactionTemplate(transactionManager);
         TransactionTemplate inner = new TransactionTemplate(transactionManager);
         inner.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
         assertThatThrownBy(() -> outer.executeWithoutResult(outerStatus -> {
                     Category category = repository.findByIdAndActiveTrue(id).orElseThrow();
-                    inner.executeWithoutResult(innerStatus -> categoryService.deactivate(id));
+                    inner.executeWithoutResult(innerStatus -> categoryService.deactivate(id, category.getVersion()));
                     category.rename("Renamed");
                 }))
                 .isInstanceOf(OptimisticLockingFailureException.class);
@@ -54,18 +57,50 @@ class CategoryServiceIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void renameAfterConcurrentRenameFailsWithVersionMismatch() {
+        long id = Objects.requireNonNull(repository.save(newBooks()).getId());
+        TransactionTemplate outer = new TransactionTemplate(transactionManager);
+        TransactionTemplate inner = new TransactionTemplate(transactionManager);
+        inner.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        assertThatThrownBy(() -> outer.executeWithoutResult(outerStatus -> {
+                    Category category = repository.findByIdAndActiveTrue(id).orElseThrow();
+                    long readVersion = category.getVersion();
+                    inner.executeWithoutResult(innerStatus -> categoryService.update(id, RENAME_REQUEST, readVersion));
+                    categoryService.update(id, new UpdateCategoryRequest("RenamedTwice"), readVersion);
+                }))
+                .isInstanceOf(VersionMismatchException.class)
+                .hasMessage("Category " + id + " was modified by another request. Reload it and try again")
+                .hasCauseInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(repository.findByIdAndActiveTrue(id).orElseThrow().getName()).isEqualTo("Renamed");
+    }
+
+    @Test
+    void updateReturnsIncrementedVersion() {
+        Category category = repository.save(newBooks());
+        long id = Objects.requireNonNull(category.getId());
+        long version = category.getVersion();
+
+        long newVersion = categoryService.update(id, RENAME_REQUEST, version).version();
+
+        assertThat(newVersion).isEqualTo(version + 1);
+    }
+
+    @Test
     void updateResponseContainsNewModificationTimestamp() {
-        CategoryResponse created = categoryService.create(new CreateCategoryRequest("Books", "books"));
+        Versioned<CategoryResponse> created = categoryService.create(new CreateCategoryRequest("Books", "books"));
 
-        CategoryResponse updated = categoryService.update(created.id(), new UpdateCategoryRequest("Renamed"));
+        CategoryResponse updated = categoryService
+                .update(created.body().id(), RENAME_REQUEST, created.version())
+                .body();
 
-        assertThat(updated.updatedAt()).isAfter(created.updatedAt());
+        assertThat(updated.updatedAt()).isAfter(created.body().updatedAt());
     }
 
     @Test
     void deactivationWaitsForConcurrentProductCreationAndFails() throws Exception {
-        long categoryId = Objects.requireNonNull(
-                repository.save(new Category("Books", "books")).getId());
+        Category category = repository.save(newBooks());
+        long categoryId = Objects.requireNonNull(category.getId());
         CountDownLatch lockAcquired = new CountDownLatch(1);
         CountDownLatch commitAllowed = new CountDownLatch(1);
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -79,7 +114,8 @@ class CategoryServiceIT extends AbstractIntegrationTest {
             }));
             assertThat(lockAcquired.await(5, TimeUnit.SECONDS)).isTrue();
 
-            Future<?> deactivation = executor.submit(() -> categoryService.deactivate(categoryId));
+            Future<?> deactivation =
+                    executor.submit(() -> categoryService.deactivate(categoryId, category.getVersion()));
             assertThatThrownBy(() -> deactivation.get(500, TimeUnit.MILLISECONDS))
                     .isInstanceOf(TimeoutException.class);
             commitAllowed.countDown();
@@ -93,15 +129,15 @@ class CategoryServiceIT extends AbstractIntegrationTest {
 
     @Test
     void productCreationWaitsForConcurrentDeactivationAndFails() throws Exception {
-        long categoryId = Objects.requireNonNull(
-                repository.save(new Category("Books", "books")).getId());
+        Category category = repository.save(newBooks());
+        long categoryId = Objects.requireNonNull(category.getId());
         CountDownLatch lockAcquired = new CountDownLatch(1);
         CountDownLatch commitAllowed = new CountDownLatch(1);
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             Future<?> deactivation = executor.submit(() -> transaction.executeWithoutResult(status -> {
-                categoryService.deactivate(categoryId);
+                categoryService.deactivate(categoryId, category.getVersion());
                 lockAcquired.countDown();
                 awaitOrFail(commitAllowed);
             }));
@@ -128,5 +164,9 @@ class CategoryServiceIT extends AbstractIntegrationTest {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
         }
+    }
+
+    private static Category newBooks() {
+        return new Category("Books", "books");
     }
 }

@@ -142,6 +142,26 @@ class GlobalExceptionHandlerTest {
         assertThat(result).bodyText().doesNotContain("leak-marker");
     }
 
+    @Test
+    void preconditionRequiredReturns428WithDetail() {
+        assertThat(mvc.put().uri("/test/precondition-required"))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("Precondition required");
+    }
+
+    @Test
+    void versionMismatchReturns412WithDetail() {
+        assertThat(mvc.put().uri("/test/version-mismatch"))
+                .hasStatus(HttpStatus.PRECONDITION_FAILED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("Version mismatch");
+    }
+
     @RestController
     static class ThrowingController {
 
@@ -177,6 +197,16 @@ class GlobalExceptionHandlerTest {
         @PutMapping("/test/optimistic-locking-failure")
         void optimisticLockingFailure() {
             throw new OptimisticLockingFailureException("secret internal detail: \"leak-marker\"");
+        }
+
+        @PutMapping("/test/precondition-required")
+        void preconditionRequired() {
+            throw new PreconditionRequiredException("Precondition required");
+        }
+
+        @PutMapping("/test/version-mismatch")
+        void versionMismatch() {
+            throw new VersionMismatchException("Version mismatch");
         }
     }
 
