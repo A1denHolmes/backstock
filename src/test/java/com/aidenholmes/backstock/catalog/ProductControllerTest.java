@@ -2,10 +2,14 @@ package com.aidenholmes.backstock.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.aidenholmes.backstock.common.ConflictException;
+import com.aidenholmes.backstock.common.EntityTags;
 import com.aidenholmes.backstock.common.NotFoundException;
+import com.aidenholmes.backstock.common.VersionMismatchException;
+import com.aidenholmes.backstock.common.Versioned;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
@@ -44,8 +48,8 @@ class ProductControllerTest {
                 "imageUrl": null
             }
         """;
-    private static final ProductResponse BOOK_RESPONSE =
-            new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW);
+    private static final Versioned<ProductResponse> BOOK_RESPONSE = new Versioned<>(
+            new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW), 1L);
     private static final String BOOK_RESPONSE_JSON = """
             {
                 "id": 1,
@@ -87,6 +91,7 @@ class ProductControllerTest {
 
         assertThat(mvc.get().uri("/api/v1/products/1"))
                 .hasStatus(HttpStatus.OK)
+                .hasHeader(HttpHeaders.ETAG, EntityTags.of(1L))
                 .bodyJson()
                 .isStrictlyEqualTo(BOOK_RESPONSE_JSON);
     }
@@ -118,7 +123,18 @@ class ProductControllerTest {
     }
 
     @Test
-    void productIsCreatedAndReturns201WithLocationAndBody() {
+    void matchingIfNoneMatchReturns304() {
+        when(service.findById(1L)).thenReturn(BOOK_RESPONSE);
+
+        assertThat(mvc.get().uri("/api/v1/products/1").header(HttpHeaders.IF_NONE_MATCH, EntityTags.of(1L)))
+                .hasStatus(HttpStatus.NOT_MODIFIED)
+                .hasHeader(HttpHeaders.ETAG, "\"1\"")
+                .body()
+                .isEmpty();
+    }
+
+    @Test
+    void productIsCreatedAndReturns201WithLocationEtagAndBody() {
         when(service.create(CREATE_BOOK)).thenReturn(BOOK_RESPONSE);
 
         assertThat(mvc.post()
@@ -127,6 +143,7 @@ class ProductControllerTest {
                         .content(CREATE_BOOK_JSON))
                 .hasStatus(HttpStatus.CREATED)
                 .hasHeader(HttpHeaders.LOCATION, "http://localhost/api/v1/products/1")
+                .hasHeader(HttpHeaders.ETAG, EntityTags.of(1L))
                 .bodyJson()
                 .isStrictlyEqualTo(BOOK_RESPONSE_JSON);
     }
@@ -216,25 +233,29 @@ class ProductControllerTest {
     }
 
     @Test
-    void productIsUpdatedAndReturns200WithBody() {
-        when(service.update(1L, UPDATE_TO_PHONE))
-                .thenReturn(new ProductResponse(
-                        1L,
-                        "Phone",
-                        "BOOK",
-                        "Description",
-                        new BigDecimal("20.00"),
-                        1,
-                        2L,
-                        "https://example.com/picture.jpg",
-                        NOW,
-                        NOW));
+    void productIsUpdatedAndReturns200WithEtagAndBody() {
+        when(service.update(1L, UPDATE_TO_PHONE, 1L))
+                .thenReturn(new Versioned<>(
+                        new ProductResponse(
+                                1L,
+                                "Phone",
+                                "BOOK",
+                                "Description",
+                                new BigDecimal("20.00"),
+                                1,
+                                2L,
+                                "https://example.com/picture.jpg",
+                                NOW,
+                                NOW),
+                        2L));
 
         assertThat(mvc.put()
                         .uri("/api/v1/products/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(UPDATE_TO_PHONE_JSON))
                 .hasStatus(HttpStatus.OK)
+                .hasHeader(HttpHeaders.ETAG, EntityTags.of(2L))
                 .bodyJson()
                 .isStrictlyEqualTo("""
                     {
@@ -254,10 +275,11 @@ class ProductControllerTest {
 
     @Test
     void updateOfUnknownProductReturns404() {
-        when(service.update(1L, UPDATE_TO_PHONE)).thenThrow(new NotFoundException("Product 1 not found"));
+        when(service.update(1L, UPDATE_TO_PHONE, 1L)).thenThrow(new NotFoundException("Product 1 not found"));
 
         assertThat(mvc.put()
                         .uri("/api/v1/products/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(UPDATE_TO_PHONE_JSON))
                 .hasStatus(HttpStatus.NOT_FOUND)
@@ -304,9 +326,81 @@ class ProductControllerTest {
     }
 
     @Test
+    void updateWithoutIfMatchReturns428() {
+        assertThat(mvc.put()
+                        .uri("/api/v1/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UPDATE_TO_PHONE_JSON))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match header is required. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void updateWithWildcardIfMatchReturns428() {
+        assertThat(mvc.put()
+                        .uri("/api/v1/products/1")
+                        .header(HttpHeaders.IF_MATCH, "*")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UPDATE_TO_PHONE_JSON))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match: * is not accepted. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void updateWithWeakEntityTagReturns412() {
+        assertThat(mvc.put()
+                        .uri("/api/v1/products/1")
+                        .header(HttpHeaders.IF_MATCH, "W/\"1\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UPDATE_TO_PHONE_JSON))
+                .hasStatus(HttpStatus.PRECONDITION_FAILED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match does not match the current version of the resource");
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void updateWithOutdatedVersionReturns412() {
+        when(service.update(1L, UPDATE_TO_PHONE, 1L)).thenThrow(new VersionMismatchException("Version mismatch"));
+
+        assertThat(mvc.put()
+                        .uri("/api/v1/products/1")
+                        .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UPDATE_TO_PHONE_JSON))
+                .hasStatus(HttpStatus.PRECONDITION_FAILED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("Version mismatch");
+    }
+
+    @Test
     void productIsDeactivatedAndReturns204() {
-        assertThat(mvc.delete().uri("/api/v1/products/1")).hasStatus(HttpStatus.NO_CONTENT);
-        verify(service).deactivate(1L);
+        assertThat(mvc.delete().uri("/api/v1/products/1").header(HttpHeaders.IF_MATCH, EntityTags.of(1L)))
+                .hasStatus(HttpStatus.NO_CONTENT);
+        verify(service).deactivate(1L, 1L);
+    }
+
+    @Test
+    void deactivationWithoutIfMatchReturns428() {
+        assertThat(mvc.delete().uri("/api/v1/products/1"))
+                .hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("If-Match header is required. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
     }
 
     private static Stream<String> invalidPrices() {
@@ -349,6 +443,7 @@ class ProductControllerTest {
     private MvcTestResult put(Map<String, Object> body) {
         return mvc.put()
                 .uri("/api/v1/products/1")
+                .header(HttpHeaders.IF_MATCH, EntityTags.of(1L))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonMapper.writeValueAsString(body))
                 .exchange();

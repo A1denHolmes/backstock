@@ -2,7 +2,10 @@ package com.aidenholmes.backstock.catalog;
 
 import com.aidenholmes.backstock.common.ConflictException;
 import com.aidenholmes.backstock.common.NotFoundException;
+import com.aidenholmes.backstock.common.VersionMismatchException;
+import com.aidenholmes.backstock.common.Versioned;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,12 +18,14 @@ class ProductService {
     private final CategoryRepository categoryRepository;
 
     @Transactional(readOnly = true)
-    ProductResponse findById(long id) {
-        return ProductResponse.from(findActiveOrThrow(id));
+    Versioned<ProductResponse> findById(long id) {
+        Product product = findActiveOrThrow(id);
+
+        return new Versioned<>(ProductResponse.from(product), product.getVersion());
     }
 
     @Transactional
-    ProductResponse create(CreateProductRequest request) {
+    Versioned<ProductResponse> create(CreateProductRequest request) {
         if (productRepository.existsBySku(request.sku())) {
             throw new ConflictException("Product with SKU \"" + request.sku() + "\" already exists");
         }
@@ -35,23 +40,43 @@ class ProductService {
                 category,
                 request.imageUrl()));
 
-        return ProductResponse.from(created);
+        return new Versioned<>(ProductResponse.from(created), created.getVersion());
     }
 
     @Transactional
-    ProductResponse update(long id, UpdateProductRequest request) {
+    Versioned<ProductResponse> update(long id, UpdateProductRequest request, long expectedVersion) {
         Product product = findActiveOrThrow(id);
+
+        if (product.getVersion() != expectedVersion) {
+            throw new VersionMismatchException(versionMismatchDetail(id));
+        }
+
         Category category = findActiveCategoryOrThrow(request.categoryId());
 
         product.update(request.name(), request.description(), request.price(), category, request.imageUrl());
-        productRepository.flush();
+        try {
+            productRepository.flush();
+        } catch (OptimisticLockingFailureException e) {
+            throw new VersionMismatchException(versionMismatchDetail(id), e);
+        }
 
-        return ProductResponse.from(product);
+        return new Versioned<>(ProductResponse.from(product), product.getVersion());
     }
 
     @Transactional
-    void deactivate(long id) {
-        findActiveOrThrow(id).deactivate();
+    void deactivate(long id, long expectedVersion) {
+        Product product = findActiveOrThrow(id);
+
+        if (product.getVersion() != expectedVersion) {
+            throw new VersionMismatchException(versionMismatchDetail(id));
+        }
+
+        product.deactivate();
+        try {
+            productRepository.flush();
+        } catch (OptimisticLockingFailureException e) {
+            throw new VersionMismatchException(versionMismatchDetail(id), e);
+        }
     }
 
     private Product findActiveOrThrow(long id) {
@@ -64,5 +89,9 @@ class ProductService {
         return categoryRepository
                 .findForShareByIdAndActiveTrue(id)
                 .orElseThrow(() -> new NotFoundException("Category " + id + " not found"));
+    }
+
+    private static String versionMismatchDetail(long id) {
+        return "Product " + id + " was modified by another request. Reload it and try again";
     }
 }
