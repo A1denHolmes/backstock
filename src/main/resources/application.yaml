@@ -20,5 +20,8 @@ spring:
           batch_size: 50
         order_inserts: true
         order_updates: true
+  jackson:
+    deserialization:
+      accept-float-as-int: false
 springdoc:
   default-produces-media-type: application/json

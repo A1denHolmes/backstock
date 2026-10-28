@@ -234,6 +234,13 @@ class ProductControllerTest {
     }
 
     @Test
+    void fractionalStockQuantityReturns400() {
+        assertThat(post(createBodyWith("stockQuantity", 1.8)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
     void productWithMaximumStockQuantityIsCreated() {
         when(service.create(new CreateProductRequest(
                         "Book", "BOOK", null, new BigDecimal("10.00"), Product.STOCK_QUANTITY_MAX, 1L, null)))
