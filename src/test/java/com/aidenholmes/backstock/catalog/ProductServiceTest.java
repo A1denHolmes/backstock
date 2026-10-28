@@ -58,7 +58,7 @@ class ProductServiceTest {
 
         assertThat(created)
                 .isEqualTo(new Versioned<>(
-                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW),
+                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1L, null, NOW, NOW),
                         1L));
     }
 
@@ -87,7 +87,7 @@ class ProductServiceTest {
 
         assertThat(found)
                 .isEqualTo(new Versioned<>(
-                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW),
+                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1L, null, NOW, NOW),
                         1L));
     }
 
@@ -130,7 +130,6 @@ class ProductServiceTest {
                                 "BOOK",
                                 "Description",
                                 new BigDecimal("20.50"),
-                                1,
                                 2L,
                                 "https://example.com/picture.jpg",
                                 NOW,

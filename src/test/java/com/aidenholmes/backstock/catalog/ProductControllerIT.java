@@ -46,10 +46,7 @@ class ProductControllerIT extends AbstractIntegrationTest {
                                 "categoryId": %d
                             }
                         """.formatted(books.getId())))
-                .hasStatus(HttpStatus.OK)
-                .bodyJson()
-                .extractingPath("$.stockQuantity")
-                .isEqualTo(1);
+                .hasStatus(HttpStatus.OK);
         assertThat(productRepository.findByIdAndActiveTrue(id).orElseThrow().getStockQuantity())
                 .isEqualTo(1);
     }

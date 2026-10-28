@@ -22,7 +22,6 @@ record ProductResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "100.50")
         BigDecimal price,
 
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int stockQuantity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long categoryId,
 
         @Schema(example = "https://example.com/picture.jpg") @Nullable
@@ -40,7 +39,6 @@ record ProductResponse(
                 product.getSku(),
                 product.getDescription(),
                 price,
-                product.getStockQuantity(),
                 Objects.requireNonNull(product.getCategory().getId()),
                 product.getImageUrl(),
                 Objects.requireNonNull(product.getCreatedAt()),

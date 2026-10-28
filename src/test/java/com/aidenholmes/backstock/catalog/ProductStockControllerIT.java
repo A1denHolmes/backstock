@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -139,6 +141,25 @@ class ProductStockControllerIT extends AbstractIntegrationTest {
                 .bodyJson()
                 .extractingPath("$.detail")
                 .isEqualTo("Product 2 not found");
+    }
+
+    @Test
+    void stockAdjustmentKeepsProductEntityTagAndBody() throws Exception {
+        long id = Objects.requireNonNull(productRepository.save(book()).getId());
+
+        MvcTestResult before = mvc.get().uri("/api/v1/products/{id}", id).exchange();
+        String entityTag = Objects.requireNonNull(before.getResponse().getHeader(HttpHeaders.ETAG));
+        String body = before.getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        assertThat(patch(id, -5))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .extractingPath("$.quantity")
+                .isEqualTo(5);
+        MvcTestResult after = mvc.get().uri("/api/v1/products/{id}", id).exchange();
+
+        assertThat(after).hasHeader(HttpHeaders.ETAG, entityTag);
+        assertThat(after).bodyJson().isStrictlyEqualTo(body);
     }
 
     private Product book() {
