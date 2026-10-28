@@ -49,7 +49,7 @@ class ProductControllerTest {
             }
         """;
     private static final Versioned<ProductResponse> BOOK_RESPONSE = new Versioned<>(
-            new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW), 1L);
+            new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1L, null, NOW, NOW), 1L);
     private static final String BOOK_RESPONSE_JSON = """
             {
                 "id": 1,
@@ -57,7 +57,6 @@ class ProductControllerTest {
                 "sku": "BOOK",
                 "description": null,
                 "price": 10.00,
-                "stockQuantity": 1,
                 "categoryId": 1,
                 "imageUrl": null,
                 "createdAt": "2026-10-19T10:00:00Z",
@@ -227,9 +226,27 @@ class ProductControllerTest {
         assertFieldError(post(createBodyWith("name", "   ")), "name");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(ints = {-1, Product.STOCK_QUANTITY_MAX + 1})
+    void invalidStockQuantityReturns400(int stockQuantity) {
+        assertFieldError(post(createBodyWith("stockQuantity", stockQuantity)), "stockQuantity");
+    }
+
     @Test
-    void negativeStockQuantityReturns400() {
-        assertFieldError(post(createBodyWith("stockQuantity", -1)), "stockQuantity");
+    void fractionalStockQuantityReturns400() {
+        assertThat(post(createBodyWith("stockQuantity", 1.8)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
+    void productWithMaximumStockQuantityIsCreated() {
+        when(service.create(new CreateProductRequest(
+                        "Book", "BOOK", null, new BigDecimal("10.00"), Product.STOCK_QUANTITY_MAX, 1L, null)))
+                .thenReturn(BOOK_RESPONSE);
+
+        assertThat(post(createBodyWith("stockQuantity", Product.STOCK_QUANTITY_MAX)))
+                .hasStatus(HttpStatus.CREATED);
     }
 
     @Test
@@ -242,7 +259,6 @@ class ProductControllerTest {
                                 "BOOK",
                                 "Description",
                                 new BigDecimal("20.00"),
-                                1,
                                 2L,
                                 "https://example.com/picture.jpg",
                                 NOW,
@@ -264,7 +280,6 @@ class ProductControllerTest {
                         "sku": "BOOK",
                         "description": "Description",
                         "price": 20.00,
-                        "stockQuantity": 1,
                         "categoryId": 2,
                         "imageUrl": "https://example.com/picture.jpg",
                         "createdAt": "2026-10-19T10:00:00Z",

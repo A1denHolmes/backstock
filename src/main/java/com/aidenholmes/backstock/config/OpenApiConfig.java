@@ -22,6 +22,8 @@ class OpenApiConfig {
                 Validation errors list the invalid fields in `errors`. Timestamps are in UTC in ISO 8601 format.
                 Requests that update or delete a resource must send the `ETag` from the latest read of that resource in
                 the `If-Match` header. Without the header the response is 428, with an outdated value 412.
+                Stock adjustments are the exception: they send a change to apply rather than a new value and need no
+                `If-Match`.
                 """)
                         .license(new License().name("MIT License").url("https://opensource.org/licenses/MIT")));
     }

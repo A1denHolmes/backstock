@@ -2,6 +2,7 @@ package com.aidenholmes.backstock.catalog;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -31,7 +32,10 @@ record CreateProductRequest(
         @NotNull @Positive @Digits(integer = 15, fraction = 2) @Schema(example = "100.50")
         BigDecimal price,
 
-        @NotNull @PositiveOrZero @Schema(description = "Can only be set at creation")
+        @NotNull
+        @PositiveOrZero
+        @Max(Product.STOCK_QUANTITY_MAX)
+        @Schema(description = "Initial stock. Changed afterwards through the product stock endpoint")
         Integer stockQuantity,
 
         @NotNull Long categoryId,

@@ -58,7 +58,7 @@ class ProductServiceTest {
 
         assertThat(created)
                 .isEqualTo(new Versioned<>(
-                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW),
+                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1L, null, NOW, NOW),
                         1L));
     }
 
@@ -87,7 +87,7 @@ class ProductServiceTest {
 
         assertThat(found)
                 .isEqualTo(new Versioned<>(
-                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1, 1L, null, NOW, NOW),
+                        new ProductResponse(1L, "Book", "BOOK", null, new BigDecimal("10.00"), 1L, null, NOW, NOW),
                         1L));
     }
 
@@ -96,6 +96,22 @@ class ProductServiceTest {
         when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.findById(1L)).isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void stockIsFoundByProductId() {
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.of(10));
+
+        assertThat(service.findStock(1L)).isEqualTo(new StockResponse(10));
+    }
+
+    @Test
+    void stockOfUnknownProductIsNotFound() {
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.findStock(1L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Product 1 not found");
     }
 
     @Test
@@ -114,7 +130,6 @@ class ProductServiceTest {
                                 "BOOK",
                                 "Description",
                                 new BigDecimal("20.50"),
-                                1,
                                 2L,
                                 "https://example.com/picture.jpg",
                                 NOW,
@@ -167,6 +182,35 @@ class ProductServiceTest {
                 .isInstanceOf(VersionMismatchException.class)
                 .hasMessage("Product 1 was modified by another request. Reload it and try again")
                 .hasCauseInstanceOf(OptimisticLockingFailureException.class);
+    }
+
+    @Test
+    void stockOfActiveProductIsAdjusted() {
+        when(productRepository.adjustStockQuantity(1L, -5)).thenReturn(1);
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.of(5));
+
+        assertThat(service.adjustStock(1L, new AdjustStockRequest(-5))).isEqualTo(new StockResponse(5));
+    }
+
+    @Test
+    void stockAdjustmentOfUnknownProductIsNotFound() {
+        when(productRepository.adjustStockQuantity(1L, -5)).thenReturn(0);
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.adjustStock(1L, new AdjustStockRequest(-5)))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Product 1 not found");
+    }
+
+    @Test
+    void stockAdjustmentOutOfRangeIsRejected() {
+        when(productRepository.adjustStockQuantity(1L, -5)).thenReturn(0);
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.of(3));
+
+        assertThatThrownBy(() -> service.adjustStock(1L, new AdjustStockRequest(-5)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Stock of product 1 cannot be changed by -5: current stock is 3, "
+                        + "and the result must be between 0 and 1000000");
     }
 
     @Test
