@@ -24,6 +24,13 @@ class ProductService {
         return new Versioned<>(ProductResponse.from(product), product.getVersion());
     }
 
+    @Transactional(readOnly = true)
+    StockResponse findStock(long id) {
+        int stock = productRepository.findStockQuantityByIdAndActiveTrue(id).orElseThrow(() -> productNotFound(id));
+
+        return new StockResponse(stock);
+    }
+
     @Transactional
     Versioned<ProductResponse> create(CreateProductRequest request) {
         if (productRepository.existsBySku(request.sku())) {
@@ -80,9 +87,7 @@ class ProductService {
     }
 
     private Product findActiveOrThrow(long id) {
-        return productRepository
-                .findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new NotFoundException("Product " + id + " not found"));
+        return productRepository.findByIdAndActiveTrue(id).orElseThrow(() -> productNotFound(id));
     }
 
     private Category findActiveCategoryOrThrow(long id) {
@@ -93,5 +98,9 @@ class ProductService {
 
     private static String versionMismatchDetail(long id) {
         return "Product " + id + " was modified by another request. Reload it and try again";
+    }
+
+    private static NotFoundException productNotFound(long id) {
+        return new NotFoundException("Product " + id + " not found");
     }
 }

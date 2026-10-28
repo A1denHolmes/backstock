@@ -99,6 +99,22 @@ class ProductServiceTest {
     }
 
     @Test
+    void stockIsFoundByProductId() {
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.of(10));
+
+        assertThat(service.findStock(1L)).isEqualTo(new StockResponse(10));
+    }
+
+    @Test
+    void stockOfUnknownProductIsNotFound() {
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.findStock(1L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Product 1 not found");
+    }
+
+    @Test
     void existingProductIsUpdated() {
         when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(persistedBook()));
         when(categoryRepository.findForShareByIdAndActiveTrue(2L))
