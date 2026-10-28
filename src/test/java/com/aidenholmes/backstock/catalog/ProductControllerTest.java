@@ -227,9 +227,20 @@ class ProductControllerTest {
         assertFieldError(post(createBodyWith("name", "   ")), "name");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(ints = {-1, Product.STOCK_QUANTITY_MAX + 1})
+    void invalidStockQuantityReturns400(int stockQuantity) {
+        assertFieldError(post(createBodyWith("stockQuantity", stockQuantity)), "stockQuantity");
+    }
+
     @Test
-    void negativeStockQuantityReturns400() {
-        assertFieldError(post(createBodyWith("stockQuantity", -1)), "stockQuantity");
+    void productWithMaximumStockQuantityIsCreated() {
+        when(service.create(new CreateProductRequest(
+                        "Book", "BOOK", null, new BigDecimal("10.00"), Product.STOCK_QUANTITY_MAX, 1L, null)))
+                .thenReturn(BOOK_RESPONSE);
+
+        assertThat(post(createBodyWith("stockQuantity", Product.STOCK_QUANTITY_MAX)))
+                .hasStatus(HttpStatus.CREATED);
     }
 
     @Test

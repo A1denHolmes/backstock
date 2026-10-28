@@ -29,6 +29,7 @@ class Product extends AuditableEntity {
             "must contain uppercase Latin letters and digits, separated by single hyphens";
     static final int IMAGE_URL_MAX_LENGTH = 2048;
     static final int DESCRIPTION_MAX_LENGTH = 5000;
+    static final int STOCK_QUANTITY_MAX = 1_000_000;
 
     @Column(nullable = false, length = NAME_MAX_LENGTH)
     private String name;
