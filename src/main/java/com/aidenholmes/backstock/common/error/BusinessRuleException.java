@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.error;
 
 /**
  * Thrown when an operation is not allowed by a business rule, regardless of the current state of the data.

@@ -1,7 +1,8 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.error;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.aidenholmes.backstock.common.web.PreconditionRequiredException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,6 @@
 package com.aidenholmes.backstock.catalog;
 
-import com.aidenholmes.backstock.common.AuditableEntity;
+import com.aidenholmes.backstock.common.persistence.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

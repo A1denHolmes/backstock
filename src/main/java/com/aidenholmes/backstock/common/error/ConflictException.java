@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.error;
 
 /**
  * Thrown when an operation conflicts with the current state of the data, such as a unique value that is already

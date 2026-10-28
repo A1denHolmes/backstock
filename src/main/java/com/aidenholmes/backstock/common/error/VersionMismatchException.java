@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.error;
 
 /**
  * Thrown when the version a client expects does not match the current version of the resource, including entity tags

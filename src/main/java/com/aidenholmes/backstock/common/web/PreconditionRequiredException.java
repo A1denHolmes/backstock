@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.web;
 
 /**
  * Thrown when a request that changes a resource does not carry a usable precondition, such as a missing

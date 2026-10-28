@@ -1,5 +1,6 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.web;
 
+import com.aidenholmes.backstock.common.error.VersionMismatchException;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

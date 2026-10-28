@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
-import com.aidenholmes.backstock.common.ConflictException;
-import com.aidenholmes.backstock.common.VersionMismatchException;
+import com.aidenholmes.backstock.common.error.ConflictException;
+import com.aidenholmes.backstock.common.error.VersionMismatchException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;

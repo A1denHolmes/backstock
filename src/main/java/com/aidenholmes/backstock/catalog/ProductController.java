@@ -1,7 +1,7 @@
 package com.aidenholmes.backstock.catalog;
 
-import com.aidenholmes.backstock.common.EntityTags;
-import com.aidenholmes.backstock.common.Versioned;
+import com.aidenholmes.backstock.common.web.EntityTags;
+import com.aidenholmes.backstock.common.web.Versioned;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
