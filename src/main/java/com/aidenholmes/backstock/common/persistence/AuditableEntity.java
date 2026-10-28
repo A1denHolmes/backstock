@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;

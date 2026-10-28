@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.error;
 
 /**
  * Base class for exceptions that signal a domain error.

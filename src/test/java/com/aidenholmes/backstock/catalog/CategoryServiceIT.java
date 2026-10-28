@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
-import com.aidenholmes.backstock.common.ConflictException;
-import com.aidenholmes.backstock.common.NotFoundException;
-import com.aidenholmes.backstock.common.VersionMismatchException;
-import com.aidenholmes.backstock.common.Versioned;
+import com.aidenholmes.backstock.common.error.ConflictException;
+import com.aidenholmes.backstock.common.error.NotFoundException;
+import com.aidenholmes.backstock.common.error.VersionMismatchException;
+import com.aidenholmes.backstock.common.web.Versioned;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;

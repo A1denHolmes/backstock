@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.error;
 
 /**
  * Thrown when a resource does not exist or belongs to another user. Both cases are reported the same way, so the

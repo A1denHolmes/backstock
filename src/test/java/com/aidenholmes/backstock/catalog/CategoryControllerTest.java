@@ -6,11 +6,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.aidenholmes.backstock.common.ConflictException;
-import com.aidenholmes.backstock.common.EntityTags;
-import com.aidenholmes.backstock.common.NotFoundException;
-import com.aidenholmes.backstock.common.VersionMismatchException;
-import com.aidenholmes.backstock.common.Versioned;
+import com.aidenholmes.backstock.common.error.ConflictException;
+import com.aidenholmes.backstock.common.error.NotFoundException;
+import com.aidenholmes.backstock.common.error.VersionMismatchException;
+import com.aidenholmes.backstock.common.web.EntityTags;
+import com.aidenholmes.backstock.common.web.Versioned;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;

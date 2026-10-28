@@ -1,9 +1,9 @@
 package com.aidenholmes.backstock.catalog;
 
-import com.aidenholmes.backstock.common.ConflictException;
-import com.aidenholmes.backstock.common.NotFoundException;
-import com.aidenholmes.backstock.common.VersionMismatchException;
-import com.aidenholmes.backstock.common.Versioned;
+import com.aidenholmes.backstock.common.error.ConflictException;
+import com.aidenholmes.backstock.common.error.NotFoundException;
+import com.aidenholmes.backstock.common.error.VersionMismatchException;
+import com.aidenholmes.backstock.common.web.Versioned;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;

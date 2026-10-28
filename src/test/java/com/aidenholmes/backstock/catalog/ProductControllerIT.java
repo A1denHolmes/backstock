@@ -3,7 +3,7 @@ package com.aidenholmes.backstock.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
-import com.aidenholmes.backstock.common.EntityTags;
+import com.aidenholmes.backstock.common.web.EntityTags;
 import java.math.BigDecimal;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;

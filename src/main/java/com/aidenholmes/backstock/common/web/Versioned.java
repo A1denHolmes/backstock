@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.web;
 
 /**
  * A service result together with the version of the entity it was built from.

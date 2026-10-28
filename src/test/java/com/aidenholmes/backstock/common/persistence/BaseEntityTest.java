@@ -1,4 +1,4 @@
-package com.aidenholmes.backstock.common;
+package com.aidenholmes.backstock.common.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

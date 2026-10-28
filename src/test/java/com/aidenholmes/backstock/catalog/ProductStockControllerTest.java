@@ -3,8 +3,8 @@ package com.aidenholmes.backstock.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.aidenholmes.backstock.common.ConflictException;
-import com.aidenholmes.backstock.common.NotFoundException;
+import com.aidenholmes.backstock.common.error.ConflictException;
+import com.aidenholmes.backstock.common.error.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
