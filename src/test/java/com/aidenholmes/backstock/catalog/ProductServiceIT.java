@@ -4,10 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.aidenholmes.backstock.common.AbstractIntegrationTest;
+import com.aidenholmes.backstock.common.ConflictException;
 import com.aidenholmes.backstock.common.VersionMismatchException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -116,6 +124,51 @@ class ProductServiceIT extends AbstractIntegrationTest {
                 .hasMessage("Product " + productId + " was modified by another request. Reload it and try again")
                 .hasCauseInstanceOf(OptimisticLockingFailureException.class);
         assertThat(productRepository.findByIdAndActiveTrue(productId)).isPresent();
+    }
+
+    @Test
+    @Timeout(10)
+    void concurrentDecreasesSucceedOnlyWhileStockLasts() throws Exception {
+        int initialStock = 5;
+        int delta = -1;
+        int threads = 10;
+
+        Category category = categoryRepository.save(newBooks());
+        long id = Objects.requireNonNull(productRepository
+                .save(new Product("Book", "BOOK", null, new BigDecimal("10.00"), initialStock, category, null))
+                .getId());
+
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch ready = new CountDownLatch(threads);
+        List<Future<Boolean>> results = new ArrayList<>(threads);
+        try (ExecutorService pool = Executors.newFixedThreadPool(threads)) {
+            for (int i = 0; i < threads; i++) {
+                results.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    try {
+                        service.adjustStock(id, new AdjustStockRequest(delta));
+                        return true;
+                    } catch (ConflictException e) {
+                        return false;
+                    }
+                }));
+            }
+            ready.await();
+            start.countDown();
+        }
+
+        int successes = 0;
+        for (Future<Boolean> result : results) {
+            if (result.get()) {
+                successes++;
+            }
+        }
+
+        int stock = service.findStock(id).quantity();
+
+        assertThat(successes).isEqualTo(initialStock);
+        assertThat(stock).isEqualTo(initialStock + successes * delta);
     }
 
     private static Category newBooks() {
