@@ -32,6 +32,19 @@ class ProductService {
     }
 
     @Transactional
+    StockResponse adjustStock(long id, AdjustStockRequest request) {
+        int updatedRows = productRepository.adjustStockQuantity(id, request.delta());
+        int stock = productRepository.findStockQuantityByIdAndActiveTrue(id).orElseThrow(() -> productNotFound(id));
+
+        if (updatedRows == 0) {
+            throw new ConflictException("""
+                Stock of product %d cannot be changed by %d: current stock is %d, and the result \
+                must be between 0 and %d""".formatted(id, request.delta(), stock, Product.STOCK_QUANTITY_MAX));
+        }
+        return new StockResponse(stock);
+    }
+
+    @Transactional
     Versioned<ProductResponse> create(CreateProductRequest request) {
         if (productRepository.existsBySku(request.sku())) {
             throw new ConflictException("Product with SKU \"" + request.sku() + "\" already exists");

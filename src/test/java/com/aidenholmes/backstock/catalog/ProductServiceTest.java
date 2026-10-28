@@ -186,6 +186,35 @@ class ProductServiceTest {
     }
 
     @Test
+    void stockOfActiveProductIsAdjusted() {
+        when(productRepository.adjustStockQuantity(1L, -5)).thenReturn(1);
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.of(5));
+
+        assertThat(service.adjustStock(1L, new AdjustStockRequest(-5))).isEqualTo(new StockResponse(5));
+    }
+
+    @Test
+    void stockAdjustmentOfUnknownProductIsNotFound() {
+        when(productRepository.adjustStockQuantity(1L, -5)).thenReturn(0);
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.adjustStock(1L, new AdjustStockRequest(-5)))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Product 1 not found");
+    }
+
+    @Test
+    void stockAdjustmentOutOfRangeIsRejected() {
+        when(productRepository.adjustStockQuantity(1L, -5)).thenReturn(0);
+        when(productRepository.findStockQuantityByIdAndActiveTrue(1L)).thenReturn(Optional.of(3));
+
+        assertThatThrownBy(() -> service.adjustStock(1L, new AdjustStockRequest(-5)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Stock of product 1 cannot be changed by -5: current stock is 3, "
+                        + "and the result must be between 0 and 1000000");
+    }
+
+    @Test
     void activeProductIsDeactivated() {
         Product product = persistedBook();
         when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(product));
