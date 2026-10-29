@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.aidenholmes</groupId>
@@ -31,12 +31,10 @@
         <nullaway.version>0.14.2</nullaway.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.1.1</springdoc-openapi-starter-webmvc-ui.version>
 
-        <!-- CVE-2026-65637, CVE-2026-78437 and other Tomcat CVEs. Remove after Spring Boot upgrade. -->
-        <tomcat.version>11.0.26</tomcat.version>
-        <!-- CVE-2026-89407, CVE-2026-89425 and other Jackson CVEs. Remove after Spring Boot upgrade. -->
-        <jackson-bom.version>3.1.7</jackson-bom.version>
-        <!-- CVE-2026-89407, CVE-2026-89425 and other Jackson CVEs. Remove after Spring Boot upgrade. -->
-        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+        <!-- CVE-2026-110879. Remove after Spring Boot upgrade. -->
+        <jackson-bom.version>3.1.8</jackson-bom.version>
+        <!-- CVE-2026-110879. Remove after Spring Boot upgrade. -->
+        <jackson-2-bom.version>2.21.8</jackson-2-bom.version>
 
         <argLine/>
     </properties>
