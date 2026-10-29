@@ -12,7 +12,7 @@
     <artifactId>backstock</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>backstock</name>
-    <description>backstock</description>
+    <description>REST API for an online store</description>
     <licenses>
         <license>
             <name>MIT License</name>
