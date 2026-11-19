@@ -2,10 +2,11 @@ package com.aidenholmes.backstock.catalog;
 
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
-interface ProductRepository extends JpaRepository<Product, Long> {
+interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
 
     boolean existsBySku(String sku);
 

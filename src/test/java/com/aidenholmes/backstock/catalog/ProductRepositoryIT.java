@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.aidenholmes.backstock.common.PostgresContainerSupport;
 import com.aidenholmes.backstock.config.JpaAuditingConfig;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.hibernate.Hibernate;
@@ -196,8 +197,115 @@ class ProductRepositoryIT extends PostgresContainerSupport {
         assertThat(exists).isFalse();
     }
 
+    @Test
+    void onlyActiveProductsAreListedWithNoFilters() {
+        Category category = persistCategory();
+        Product deactivated = persistProduct("DEACTIVATED", new BigDecimal("100.00"), category);
+        deactivated.deactivate();
+        Long first = Objects.requireNonNull(
+                persistProduct("FIRST", new BigDecimal("100.00"), category).getId());
+        Long second = Objects.requireNonNull(
+                persistProduct("SECOND", new BigDecimal("100.00"), category).getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Product> products = repository.findAll(ProductSpecifications.forListing(null, null, null));
+
+        assertThat(products).extracting(Product::getId).containsExactlyInAnyOrder(first, second);
+    }
+
+    @Test
+    void onlyProductsInRequestedCategoryAreListed() {
+        Category books = persistCategory();
+        Category phones = entityManager.persist(new Category("Phones", "phones"));
+        persistProduct("BOOK", new BigDecimal("100.00"), books);
+        Long phoneId = Objects.requireNonNull(
+                persistProduct("PHONE", new BigDecimal("100.00"), phones).getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Product> found = repository.findAll(
+                ProductSpecifications.forListing(Objects.requireNonNull(phones.getId()), null, null));
+
+        assertThat(found).extracting(Product::getId).containsExactly(phoneId);
+    }
+
+    @Test
+    void productsAtOrAboveMinimumPriceAreListedWhenOnlyMinimumIsSet() {
+        Category category = persistCategory();
+        persistProduct("BELOW", new BigDecimal("1.00"), category);
+        Long atId = Objects.requireNonNull(
+                persistProduct("AT", new BigDecimal("100.00"), category).getId());
+        Long aboveId = Objects.requireNonNull(
+                persistProduct("ABOVE", new BigDecimal("200.00"), category).getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Product> found =
+                repository.findAll(ProductSpecifications.forListing(null, new BigDecimal("100.00"), null));
+
+        assertThat(found).extracting(Product::getId).containsExactlyInAnyOrder(atId, aboveId);
+    }
+
+    @Test
+    void productsAtOrBelowMaximumPriceAreListedWhenOnlyMaximumIsSet() {
+        Category category = persistCategory();
+        Long belowId = Objects.requireNonNull(
+                persistProduct("BELOW", new BigDecimal("1.00"), category).getId());
+        Long atId = Objects.requireNonNull(
+                persistProduct("AT", new BigDecimal("100.00"), category).getId());
+        persistProduct("ABOVE", new BigDecimal("200.00"), category);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Product> found =
+                repository.findAll(ProductSpecifications.forListing(null, null, new BigDecimal("100.00")));
+
+        assertThat(found).extracting(Product::getId).containsExactlyInAnyOrder(belowId, atId);
+    }
+
+    @Test
+    void onlyProductsAtExactPriceAreListedWhenPriceBoundsAreEqual() {
+        Category category = persistCategory();
+        persistProduct("BELOW", new BigDecimal("1.00"), category);
+        Long id = Objects.requireNonNull(
+                persistProduct("AT", new BigDecimal("100.00"), category).getId());
+        persistProduct("ABOVE", new BigDecimal("200.00"), category);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Product> found = repository.findAll(
+                ProductSpecifications.forListing(null, new BigDecimal("100.00"), new BigDecimal("100.00")));
+
+        assertThat(found).extracting(Product::getId).containsExactly(id);
+    }
+
+    @Test
+    void onlyActiveProductsMatchingBothCategoryAndPriceRangeAreListed() {
+        Category books = persistCategory();
+        Category phones = entityManager.persist(new Category("Phones", "phones"));
+        BigDecimal inRange = new BigDecimal("150.00");
+        Long matchingId =
+                Objects.requireNonNull(persistProduct("MATCH", inRange, books).getId());
+        persistProduct("OTHER-CATEGORY", inRange, phones);
+        persistProduct("BELOW", new BigDecimal("99.99"), books);
+        persistProduct("ABOVE", new BigDecimal("200.01"), books);
+        persistProduct("DEACTIVATED", inRange, books).deactivate();
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Product> found = repository.findAll(ProductSpecifications.forListing(
+                Objects.requireNonNull(books.getId()), new BigDecimal("100.00"), new BigDecimal("200.00")));
+
+        assertThat(found).extracting(Product::getId).containsExactly(matchingId);
+    }
+
     private Category persistCategory() {
         return entityManager.persist(new Category("Books", "books"));
+    }
+
+    private Product persistProduct(String sku, BigDecimal price, Category category) {
+        return entityManager.persist(new Product("Product", sku, null, price, 1, category, null));
     }
 
     private static Product newBook(Category category) {
