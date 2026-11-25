@@ -44,6 +44,10 @@ class ProductController {
 
     @GetMapping
     @Operation(operationId = "listProducts", summary = "List products", description = """
+                    Filters are optional and apply together. Supply either price bound or both.
+                    If both are supplied, minPrice must be less than or equal to maxPrice.
+                    A category ID with no matching products returns an empty page.
+
                     Pages are zero-based. The defaults are page 0 and size 20. Sizes above 100 are capped at 100.
                     The page number multiplied by the effective page size must not exceed 2147483647.
 
@@ -54,19 +58,20 @@ class ProductController {
     @ApiResponse(responseCode = "200", description = "Page of active products", useReturnTypeSchema = true)
     @ApiResponse(
             responseCode = "400",
-            description = "Invalid pagination or sort parameter",
+            description = "Invalid filter, pagination, or sort parameter",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(implementation = ProblemDetail.class)))
-    Page<ProductResponse> findAll(@ParameterObject Pageable pageable) {
+    Page<ProductResponse> findAll(
+            @ParameterObject @Valid ProductFilterRequest filterRequest, @ParameterObject Pageable pageable) {
         if (pageable.getOffset() > Integer.MAX_VALUE) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Page offset (page × effective page size) must not exceed %d. Reduce page or size."
                             .formatted(Integer.MAX_VALUE));
         }
-        return service.findAll(pageable);
+        return service.findAll(filterRequest, pageable);
     }
 
     @GetMapping("/{id}")

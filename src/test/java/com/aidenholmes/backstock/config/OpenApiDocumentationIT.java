@@ -59,6 +59,9 @@ class OpenApiDocumentationIT extends AbstractIntegrationTest {
                 .bodyJson();
         String parameters = PRODUCT_LISTING + ".parameters";
         docs.extractingPath(parameters + "[?(@.in == 'query')].name").asArray().contains("page", "size", "sort");
+        docs.extractingPath(parameters + "[?(@.in == 'query' && @.required == false)].name")
+                .asArray()
+                .contains("categoryId", "minPrice", "maxPrice");
         String sort = parameters + "[?(@.in == 'query' && @.name == 'sort')].schema";
         docs.extractingPath(sort + ".type").asArray().containsExactly("array");
         docs.extractingPath(sort + ".items.type").asArray().containsExactly("string");

@@ -2,6 +2,7 @@ package com.aidenholmes.backstock.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -39,6 +40,8 @@ import tools.jackson.databind.json.JsonMapper;
 @ActiveProfiles("test")
 @WebMvcTest(ProductController.class)
 class ProductControllerTest {
+
+    private static final ProductFilterRequest NO_FILTERS = new ProductFilterRequest(null, null, null);
 
     private static final Instant NOW = Instant.parse("2026-10-19T10:00:00Z");
     private static final CreateProductRequest CREATE_BOOK =
@@ -90,12 +93,43 @@ class ProductControllerTest {
     @Autowired
     private JsonMapper jsonMapper;
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"0", "-1", "abc"})
+    void invalidCategoryFilterReturns400(String value) {
+        assertInvalidFilter("categoryId", value);
+    }
+
+    @ParameterizedTest(name = "{0}={1}")
+    @CsvSource({
+        "minPrice,-0.01", "minPrice,0.001", "minPrice,abc", "minPrice,1000000000000000",
+        "maxPrice,-0.01", "maxPrice,0.001", "maxPrice,abc", "maxPrice,1000000000000000"
+    })
+    void invalidPriceFilterReturns400(String parameter, String value) {
+        assertInvalidFilter(parameter, value);
+    }
+
+    @Test
+    void reversedPriceRangeReturns400() {
+        MvcTestResult result = mvc.get()
+                .uri("/api/v1/products")
+                .queryParam("minPrice", "200")
+                .queryParam("maxPrice", "100")
+                .exchange();
+
+        assertFieldError(result, "maxPrice");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.errors[0].message")
+                .isEqualTo("must be greater than or equal to minPrice");
+        verifyNoInteractions(service);
+    }
+
     @Test
     void productsAreListedWithDefaultPagination() {
         stubEmptyProductPage();
 
         assertThat(mvc.get().uri("/api/v1/products")).hasStatus(HttpStatus.OK);
-        verify(service).findAll(PageRequest.of(0, 20));
+        verify(service).findAll(NO_FILTERS, PageRequest.of(0, 20));
     }
 
     @ParameterizedTest(name = "{0}={1}")
@@ -105,7 +139,7 @@ class ProductControllerTest {
 
         assertThat(mvc.get().uri("/api/v1/products").queryParam(parameter, value))
                 .hasStatus(HttpStatus.OK);
-        verify(service).findAll(PageRequest.of(expectedPage, expectedSize));
+        verify(service).findAll(NO_FILTERS, PageRequest.of(expectedPage, expectedSize));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -115,7 +149,7 @@ class ProductControllerTest {
 
         assertThat(mvc.get().uri("/api/v1/products").queryParam("page", "0").queryParam("size", String.valueOf(size)))
                 .hasStatus(HttpStatus.OK);
-        verify(service).findAll(PageRequest.of(0, size));
+        verify(service).findAll(NO_FILTERS, PageRequest.of(0, size));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -151,7 +185,7 @@ class ProductControllerTest {
                         .queryParam("page", String.valueOf(Integer.MAX_VALUE))
                         .queryParam("size", "1"))
                 .hasStatus(HttpStatus.OK);
-        verify(service).findAll(PageRequest.of(Integer.MAX_VALUE, 1));
+        verify(service).findAll(NO_FILTERS, PageRequest.of(Integer.MAX_VALUE, 1));
     }
 
     @Test
@@ -176,7 +210,32 @@ class ProductControllerTest {
 
         assertThat(mvc.get().uri("/api/v1/products").queryParam("sort", "price", "createdAt,DESC"))
                 .hasStatus(HttpStatus.OK);
-        verify(service).findAll(PageRequest.of(0, 20, Sort.by(Sort.Order.asc("price"), Sort.Order.desc("createdAt"))));
+        verify(service)
+                .findAll(
+                        NO_FILTERS,
+                        PageRequest.of(0, 20, Sort.by(Sort.Order.asc("price"), Sort.Order.desc("createdAt"))));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,", ",0", "10.0,10.00"})
+    void validPriceBoundsArePassedToService(String minPrice, String maxPrice) {
+        stubEmptyProductPage();
+
+        var request = mvc.get().uri("/api/v1/products");
+        if (minPrice != null) {
+            request.queryParam("minPrice", minPrice);
+        }
+        if (maxPrice != null) {
+            request.queryParam("maxPrice", maxPrice);
+        }
+
+        var expectedFilterRequest = new ProductFilterRequest(
+                null,
+                minPrice == null ? null : new BigDecimal(minPrice),
+                maxPrice == null ? null : new BigDecimal(maxPrice));
+
+        assertThat(request).hasStatus(HttpStatus.OK);
+        verify(service).findAll(eq(expectedFilterRequest), any(Pageable.class));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -546,10 +605,18 @@ class ProductControllerTest {
     }
 
     private void stubEmptyProductPage() {
-        when(service.findAll(any(Pageable.class))).thenAnswer(invocation -> {
-            Pageable pageable = invocation.getArgument(0);
-            return Page.<ProductResponse>empty(pageable);
-        });
+        when(service.findAll(any(ProductFilterRequest.class), any(Pageable.class)))
+                .thenAnswer(invocation -> {
+                    Pageable pageable = invocation.getArgument(1);
+                    return Page.<ProductResponse>empty(pageable);
+                });
+    }
+
+    private void assertInvalidFilter(String parameter, String value) {
+        var result =
+                mvc.get().uri("/api/v1/products").queryParam(parameter, value).exchange();
+        assertFieldError(result, parameter);
+        verifyNoInteractions(service);
     }
 
     private void assertInvalidPagination(String parameter, String value, int minimum) {

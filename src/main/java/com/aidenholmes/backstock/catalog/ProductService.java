@@ -22,7 +22,7 @@ class ProductService {
     private final CategoryRepository categoryRepository;
 
     @Transactional(readOnly = true)
-    Page<ProductResponse> findAll(Pageable pageable) {
+    Page<ProductResponse> findAll(ProductFilterRequest filterRequest, Pageable pageable) {
         Sort requestedSort = pageable.getSort();
         Sort sort = requestedSort.isUnsorted()
                 ? Sort.by(Sort.Direction.DESC, "createdAt", "id")
@@ -31,7 +31,10 @@ class ProductService {
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
         return productRepository
-                .findAll(ProductSpecifications.forListing(null, null, null), sortedPageable)
+                .findAll(
+                        ProductSpecifications.forListing(
+                                filterRequest.categoryId(), filterRequest.minPrice(), filterRequest.maxPrice()),
+                        sortedPageable)
                 .map(ProductResponse::from);
     }
 

@@ -65,6 +65,56 @@ class ProductControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void pageBeyondFilteredResultsReturnsEmptyContentAndMatchingTotal() {
+        Category books = saveBooks();
+        Category phones = categoryRepository.save(new Category("Phones", "phones"));
+        productRepository.save(newProduct("NINE", books, new BigDecimal("9.00")));
+        productRepository.save(newProduct("TEN", books, new BigDecimal("10.00")));
+        productRepository.save(newProduct("TWENTY", books, new BigDecimal("20.00")));
+        productRepository.save(newProduct("TWENTY-ONE", books, new BigDecimal("21.00")));
+        productRepository.save(newProduct("FIFTEEN", phones, new BigDecimal("15.00")));
+
+        MvcTestResult page = mvc.get()
+                .uri("/api/v1/products")
+                .queryParam("categoryId", Objects.requireNonNull(books.getId()).toString())
+                .queryParam("minPrice", "10")
+                .queryParam("maxPrice", "20")
+                .queryParam("page", "2")
+                .queryParam("size", "1")
+                .exchange();
+
+        assertThat(page)
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .extractingPath("$.content")
+                .asArray()
+                .isEmpty();
+        assertThat(page).bodyJson().extractingPath("$.page.totalElements").isEqualTo(2);
+        assertThat(page).bodyJson().extractingPath("$.page.number").isEqualTo(2);
+        assertThat(page).bodyJson().extractingPath("$.page.size").isEqualTo(1);
+        assertThat(page).bodyJson().extractingPath("$.page.totalPages").isEqualTo(2);
+    }
+
+    @Test
+    void unknownCategoryFilterReturnsEmptyPage() {
+        productRepository.save(newProduct("BOOK", saveBooks()));
+
+        var json = assertThat(mvc.get()
+                        .uri("/api/v1/products")
+                        .queryParam("categoryId", String.valueOf(Long.MAX_VALUE))
+                        .queryParam("page", "0")
+                        .queryParam("size", "7"))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson();
+
+        json.extractingPath("$.content").asArray().isEmpty();
+        json.extractingPath("$.page.number").isEqualTo(0);
+        json.extractingPath("$.page.size").isEqualTo(7);
+        json.extractingPath("$.page.totalElements").isEqualTo(0);
+        json.extractingPath("$.page.totalPages").isEqualTo(0);
+    }
+
+    @Test
     void stockQuantityInUpdateBodyIsIgnored() {
         Category books = saveBooks();
         Product product = productRepository.save(newProduct("BOOK", books));
@@ -116,5 +166,9 @@ class ProductControllerIT extends AbstractIntegrationTest {
 
     private static Product newProduct(String sku, Category books) {
         return new Product("Book", sku, null, new BigDecimal("10.00"), 1, books, null);
+    }
+
+    private static Product newProduct(String sku, Category books, BigDecimal price) {
+        return new Product("Book", sku, null, price, 1, books, null);
     }
 }

@@ -34,6 +34,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
+    private static final ProductFilterRequest NO_FILTERS = new ProductFilterRequest(null, null, null);
+
     private static final Instant NOW = Instant.parse("2026-10-19T10:00:00Z");
     private static final CreateProductRequest CREATE_BOOK =
             new CreateProductRequest("Book", "BOOK", null, new BigDecimal("10"), 1, 1L, null);
@@ -91,7 +93,7 @@ class ProductServiceTest {
         when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        service.findAll(PageRequest.of(0, 20));
+        service.findAll(NO_FILTERS, PageRequest.of(0, 20));
 
         Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
         verify(productRepository).findAll(ArgumentMatchers.<Specification<Product>>any(), eq(expectedPageable));
@@ -102,7 +104,8 @@ class ProductServiceTest {
         when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        service.findAll(PageRequest.of(2, 7, Sort.by(Sort.Order.desc("price"), Sort.Order.asc("createdAt"))));
+        service.findAll(
+                NO_FILTERS, PageRequest.of(2, 7, Sort.by(Sort.Order.desc("price"), Sort.Order.asc("createdAt"))));
         Pageable expectedPageable = PageRequest.of(
                 2, 7, Sort.by(Sort.Order.desc("price"), Sort.Order.asc("createdAt"), Sort.Order.asc("id")));
 
