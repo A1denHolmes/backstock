@@ -10,6 +10,11 @@ spring:
         reWriteBatchedInserts: true
         # Keeps query parameter values and server error details out of exception messages
         logServerErrorDetail: false
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+        serialization-mode: via_dto
   jpa:
     open-in-view: false
     hibernate:
