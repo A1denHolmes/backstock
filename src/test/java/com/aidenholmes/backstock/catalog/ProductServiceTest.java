@@ -3,6 +3,7 @@ package com.aidenholmes.backstock.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -19,9 +20,15 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -77,6 +84,29 @@ class ProductServiceTest {
 
         assertThatThrownBy(() -> service.create(CREATE_BOOK)).isInstanceOf(NotFoundException.class);
         verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void productsAreSortedByCreationTimeAndIdDescendingByDefault() {
+        when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.findAll(PageRequest.of(0, 20));
+
+        Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        verify(productRepository).findAll(ArgumentMatchers.<Specification<Product>>any(), eq(expectedPageable));
+    }
+
+    @Test
+    void idIsAppendedAfterRequestedSortOrders() {
+        when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        service.findAll(PageRequest.of(2, 7, Sort.by(Sort.Order.desc("price"), Sort.Order.asc("createdAt"))));
+        Pageable expectedPageable = PageRequest.of(
+                2, 7, Sort.by(Sort.Order.desc("price"), Sort.Order.asc("createdAt"), Sort.Order.asc("id")));
+
+        verify(productRepository).findAll(ArgumentMatchers.<Specification<Product>>any(), eq(expectedPageable));
     }
 
     @Test

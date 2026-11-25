@@ -13,6 +13,9 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -37,6 +41,33 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 class ProductController {
 
     private final ProductService service;
+
+    @GetMapping
+    @Operation(operationId = "listProducts", summary = "List products", description = """
+                    Pages are zero-based. The defaults are page 0 and size 20. Sizes above 100 are capped at 100.
+                    The page number multiplied by the effective page size must not exceed 2147483647.
+
+                    Sort by price or createdAt using field[,direction]. The direction is asc (default) or desc.
+                    Repeat the sort parameter to apply multiple criteria in the order supplied.
+                    The default order is createdAt DESC, id DESC. Explicit sorting appends id ASC.
+                    """)
+    @ApiResponse(responseCode = "200", description = "Page of active products", useReturnTypeSchema = true)
+    @ApiResponse(
+            responseCode = "400",
+            description = "Invalid pagination or sort parameter",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    Page<ProductResponse> findAll(@ParameterObject Pageable pageable) {
+        if (pageable.getOffset() > Integer.MAX_VALUE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Page offset (page × effective page size) must not exceed %d. Reduce page or size."
+                            .formatted(Integer.MAX_VALUE));
+        }
+        return service.findAll(pageable);
+    }
 
     @GetMapping("/{id}")
     @Operation(operationId = "getProduct", summary = "Get a product")

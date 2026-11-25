@@ -1,6 +1,7 @@
 package com.aidenholmes.backstock.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -17,10 +18,15 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -85,6 +91,107 @@ class ProductControllerTest {
     private JsonMapper jsonMapper;
 
     @Test
+    void productsAreListedWithDefaultPagination() {
+        stubEmptyProductPage();
+
+        assertThat(mvc.get().uri("/api/v1/products")).hasStatus(HttpStatus.OK);
+        verify(service).findAll(PageRequest.of(0, 20));
+    }
+
+    @ParameterizedTest(name = "{0}={1}")
+    @CsvSource({"page, 3, 3, 20", "size, 7, 0, 7"})
+    void missingPaginationParameterUsesItsDefault(String parameter, String value, int expectedPage, int expectedSize) {
+        stubEmptyProductPage();
+
+        assertThat(mvc.get().uri("/api/v1/products").queryParam(parameter, value))
+                .hasStatus(HttpStatus.OK);
+        verify(service).findAll(PageRequest.of(expectedPage, expectedSize));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(ints = {1, 100})
+    void validPageSizeIsPreserved(int size) {
+        stubEmptyProductPage();
+
+        assertThat(mvc.get().uri("/api/v1/products").queryParam("page", "0").queryParam("size", String.valueOf(size)))
+                .hasStatus(HttpStatus.OK);
+        verify(service).findAll(PageRequest.of(0, size));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(ints = {101, 10000})
+    void oversizedPageSizeIsCapped(int size) {
+        stubEmptyProductPage();
+
+        assertThat(mvc.get().uri("/api/v1/products").queryParam("size", String.valueOf(size)))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .extractingPath("$.page.size")
+                .isEqualTo(100);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"", "abc", "-1"})
+    void invalidPageReturns400(String value) {
+        assertInvalidPagination("page", value, 0);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"", "abc", "0", "-1"})
+    void invalidPageSizeReturns400(String value) {
+        assertInvalidPagination("size", value, 1);
+    }
+
+    @Test
+    void maximumPageOffsetIsAccepted() {
+        stubEmptyProductPage();
+
+        assertThat(mvc.get()
+                        .uri("/api/v1/products")
+                        .queryParam("page", String.valueOf(Integer.MAX_VALUE))
+                        .queryParam("size", "1"))
+                .hasStatus(HttpStatus.OK);
+        verify(service).findAll(PageRequest.of(Integer.MAX_VALUE, 1));
+    }
+
+    @Test
+    void pageOffsetAboveMaximumReturns400() {
+        int page = Integer.MAX_VALUE / 2 + 1;
+        assertThat(mvc.get()
+                        .uri("/api/v1/products")
+                        .queryParam("page", String.valueOf(page))
+                        .queryParam("size", "2"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .asString()
+                .contains("page", "size", String.valueOf(Integer.MAX_VALUE));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void requestedSortIsPassedToService() {
+        stubEmptyProductPage();
+
+        assertThat(mvc.get().uri("/api/v1/products").queryParam("sort", "price", "createdAt,DESC"))
+                .hasStatus(HttpStatus.OK);
+        verify(service).findAll(PageRequest.of(0, 20, Sort.by(Sort.Order.asc("price"), Sort.Order.desc("createdAt"))));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"", "id", "price,down", "price,", "price,asc,extra"})
+    void invalidSortReturns400(String invalidValue) {
+        assertThat(mvc.get().uri("/api/v1/products").queryParam("sort", "price", invalidValue))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .asString()
+                .startsWith("Parameter \"sort\" must follow the format field[,direction].");
+    }
+
+    @Test
     void productIsReturnedById() {
         when(service.findById(1L)).thenReturn(BOOK_RESPONSE);
 
@@ -93,6 +200,14 @@ class ProductControllerTest {
                 .hasHeader(HttpHeaders.ETAG, EntityTags.of(1L))
                 .bodyJson()
                 .isStrictlyEqualTo(BOOK_RESPONSE_JSON);
+    }
+
+    @Test
+    void invalidPaginationIsIgnoredOnProductLookup() {
+        when(service.findById(1L)).thenReturn(BOOK_RESPONSE);
+
+        assertThat(mvc.get().uri("/api/v1/products/1").queryParam("page", "abc"))
+                .hasStatus(HttpStatus.OK);
     }
 
     @Test
@@ -145,6 +260,18 @@ class ProductControllerTest {
                 .hasHeader(HttpHeaders.ETAG, EntityTags.of(1L))
                 .bodyJson()
                 .isStrictlyEqualTo(BOOK_RESPONSE_JSON);
+    }
+
+    @Test
+    void invalidPaginationIsIgnoredOnProductCreation() {
+        when(service.create(CREATE_BOOK)).thenReturn(BOOK_RESPONSE);
+
+        assertThat(mvc.post()
+                        .uri("/api/v1/products")
+                        .queryParam("page", "abc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CREATE_BOOK_JSON))
+                .hasStatus(HttpStatus.CREATED);
     }
 
     @Test
@@ -415,6 +542,24 @@ class ProductControllerTest {
                 .bodyJson()
                 .extractingPath("$.detail")
                 .isEqualTo("If-Match header is required. Send the ETag from the latest read of the resource");
+        verifyNoInteractions(service);
+    }
+
+    private void stubEmptyProductPage() {
+        when(service.findAll(any(Pageable.class))).thenAnswer(invocation -> {
+            Pageable pageable = invocation.getArgument(0);
+            return Page.<ProductResponse>empty(pageable);
+        });
+    }
+
+    private void assertInvalidPagination(String parameter, String value, int minimum) {
+        assertThat(mvc.get().uri("/api/v1/products").queryParam(parameter, value))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson()
+                .extractingPath("$.detail")
+                .isEqualTo("Parameter \"%s\" must be an integer greater than or equal to %d"
+                        .formatted(parameter, minimum));
         verifyNoInteractions(service);
     }
 

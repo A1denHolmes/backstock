@@ -6,6 +6,10 @@ import com.aidenholmes.backstock.common.error.VersionMismatchException;
 import com.aidenholmes.backstock.common.web.Versioned;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +20,20 @@ class ProductService {
     private final ProductRepository productRepository;
 
     private final CategoryRepository categoryRepository;
+
+    @Transactional(readOnly = true)
+    Page<ProductResponse> findAll(Pageable pageable) {
+        Sort requestedSort = pageable.getSort();
+        Sort sort = requestedSort.isUnsorted()
+                ? Sort.by(Sort.Direction.DESC, "createdAt", "id")
+                : requestedSort.and(Sort.by("id"));
+
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        return productRepository
+                .findAll(ProductSpecifications.forListing(null, null, null), sortedPageable)
+                .map(ProductResponse::from);
+    }
 
     @Transactional(readOnly = true)
     Versioned<ProductResponse> findById(long id) {

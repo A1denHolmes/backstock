@@ -14,6 +14,8 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 @AutoConfigureMockMvc
 class OpenApiDocumentationIT extends AbstractIntegrationTest {
 
+    private static final String PRODUCT_LISTING = "$.paths['/api/v1/products'].get";
+
     @Autowired
     private MockMvcTester mvc;
 
@@ -48,6 +50,46 @@ class OpenApiDocumentationIT extends AbstractIntegrationTest {
                 .bodyJson()
                 .hasPath("$.paths['/api/v1/products']")
                 .hasPath("$.paths['/api/v1/products/{id}']");
+    }
+
+    @Test
+    void apiDocsDescribeProductListingParameters() {
+        var docs = assertThat(mvc.get().uri("/v3/api-docs"))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson();
+        String parameters = PRODUCT_LISTING + ".parameters";
+        docs.extractingPath(parameters + "[?(@.in == 'query')].name").asArray().contains("page", "size", "sort");
+        String sort = parameters + "[?(@.in == 'query' && @.name == 'sort')].schema";
+        docs.extractingPath(sort + ".type").asArray().containsExactly("array");
+        docs.extractingPath(sort + ".items.type").asArray().containsExactly("string");
+    }
+
+    @Test
+    void apiDocsDescribeProductListingPage() {
+        var docs = assertThat(mvc.get().uri("/v3/api-docs"))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson();
+        String response = PRODUCT_LISTING + ".responses['200']";
+        String properties = "$.components.schemas.PagedModelProductResponse.properties";
+
+        docs.extractingPath(response + ".content['application/json'].schema['$ref']")
+                .isEqualTo("#/components/schemas/PagedModelProductResponse");
+        docs.extractingPath(properties + ".content.type").isEqualTo("array");
+        docs.extractingPath(properties + ".content.items['$ref']").isEqualTo("#/components/schemas/ProductResponse");
+        docs.extractingPath(properties + ".page['$ref']").isEqualTo("#/components/schemas/PageMetadata");
+        docs.extractingPath("$.components.schemas.PageMetadata.properties")
+                .asMap()
+                .containsKeys("number", "size", "totalElements", "totalPages");
+    }
+
+    @Test
+    void apiDocsDescribeInvalidProductListingRequest() {
+        assertThat(mvc.get().uri("/v3/api-docs"))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .extractingPath(
+                        PRODUCT_LISTING + ".responses['400'].content['application/problem+json'].schema['$ref']")
+                .isEqualTo("#/components/schemas/ProblemDetail");
     }
 
     @Test

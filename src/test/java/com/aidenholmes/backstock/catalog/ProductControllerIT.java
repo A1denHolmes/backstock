@@ -28,10 +28,46 @@ class ProductControllerIT extends AbstractIntegrationTest {
     private CategoryRepository categoryRepository;
 
     @Test
+    void activeProductWithZeroStockIsListed() {
+        Product book = productRepository.save(
+                new Product("Book", "BOOK", null, new BigDecimal("10.00"), 0, saveBooks(), null));
+
+        assertThat(mvc.get().uri("/api/v1/products"))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .extractingPath("$.content[0].id")
+                .asNumber()
+                .satisfies(id -> assertThat(id.longValue()).isEqualTo(book.getId()));
+    }
+
+    @Test
+    void pageBeyondLastProductReturnsEmptyContentAndTotalCount() {
+        Category books = saveBooks();
+        productRepository.save(newProduct("BOOK", books));
+        productRepository.save(newProduct("ANOTHER-BOOK", books));
+
+        MvcTestResult page = mvc.get()
+                .uri("/api/v1/products")
+                .queryParam("size", "1")
+                .queryParam("page", "2")
+                .exchange();
+
+        assertThat(page)
+                .hasStatus(HttpStatus.OK)
+                .bodyJson()
+                .extractingPath("$.content")
+                .asArray()
+                .isEmpty();
+        assertThat(page).bodyJson().extractingPath("$.page.totalElements").isEqualTo(2);
+        assertThat(page).bodyJson().extractingPath("$.page.number").isEqualTo(2);
+        assertThat(page).bodyJson().extractingPath("$.page.size").isEqualTo(1);
+        assertThat(page).bodyJson().extractingPath("$.page.totalPages").isEqualTo(2);
+    }
+
+    @Test
     void stockQuantityInUpdateBodyIsIgnored() {
-        Category books = categoryRepository.save(new Category("Books", "books"));
-        Product product =
-                productRepository.save(new Product("Book", "BOOK", null, new BigDecimal("10.00"), 1, books, null));
+        Category books = saveBooks();
+        Product product = productRepository.save(newProduct("BOOK", books));
         long id = Objects.requireNonNull(product.getId());
 
         assertThat(mvc.put()
@@ -53,8 +89,7 @@ class ProductControllerIT extends AbstractIntegrationTest {
 
     @Test
     void priceSurvivesRoundTripThroughDatabase() {
-        long categoryId = Objects.requireNonNull(
-                categoryRepository.save(new Category("Books", "books")).getId());
+        long categoryId = Objects.requireNonNull(saveBooks().getId());
 
         MvcTestResult created = mvc.post()
                 .uri("/api/v1/products")
@@ -73,5 +108,13 @@ class ProductControllerIT extends AbstractIntegrationTest {
         String location = Objects.requireNonNull(created.getResponse().getHeader(HttpHeaders.LOCATION));
 
         assertThat(mvc.get().uri(location)).hasStatus(HttpStatus.OK).bodyText().contains("\"price\":19.90");
+    }
+
+    private Category saveBooks() {
+        return categoryRepository.save(new Category("Books", "books"));
+    }
+
+    private static Product newProduct(String sku, Category books) {
+        return new Product("Book", sku, null, new BigDecimal("10.00"), 1, books, null);
     }
 }
