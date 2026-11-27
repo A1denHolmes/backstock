@@ -31,6 +31,10 @@
         <nullaway.version>0.14.2</nullaway.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.1.1</springdoc-openapi-starter-webmvc-ui.version>
 
+        <!-- Security fixes. Remove each override once Spring Boot manages the patched version or later. -->
+        <postgresql.version>42.7.15</postgresql.version>
+        <tomcat.version>11.0.29</tomcat.version>
+
         <argLine/>
     </properties>
 
