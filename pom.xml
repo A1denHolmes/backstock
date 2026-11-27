@@ -249,10 +249,37 @@
                         </goals>
                     </execution>
                     <execution>
-                        <id>report</id>
+                        <id>coverage</id>
                         <goals>
                             <goal>report</goal>
+                            <goal>check</goal>
                         </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/BackstockApplication.class</exclude>
+                                <exclude>**/*Request.class</exclude>
+                                <exclude>**/*Response.class</exclude>
+                                <exclude>**/catalog/Category.class</exclude>
+                                <exclude>**/catalog/Product.class</exclude>
+                                <exclude>**/common/web/Versioned.class</exclude>
+                                <exclude>**/common/error/GlobalExceptionHandler$InvalidField.class</exclude>
+                                <exclude>**/common/persistence/BaseEntity.class</exclude>
+                                <exclude>**/common/persistence/AuditableEntity.class</exclude>
+                                <exclude>com/aidenholmes/backstock/config/**</exclude>
+                            </excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
